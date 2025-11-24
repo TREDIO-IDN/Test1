@@ -139,10 +139,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
   const btnLogin = document.getElementById('btnLogin');
   const loginError = document.getElementById('loginError');
 
-  btnLogin.addEventListener('click', ()=>{
+  btnLogin.addEventListener('Load', ()=>{
     const u = document.getElementById('loginUser').value.trim();
     const p = document.getElementById('loginPass').value.trim();
-    if(u === '1' && p === '1'){
+    if(u === 'TRADERPRO2025' && p === '120288'){
       loginScreen.style.display = 'none';
       mainApp.style.display = 'grid';
     } else {
