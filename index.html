@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>TREDIO</title>
+<title>TREDIO Preview (fixed)</title>
+
+<!-- Chart.js (line chart) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
   :root{ --bg:#0b0b0c; --panel:#111217; --muted:#9aa0a6; --green:#2ecc71; --red:#e74c3c; --accent:#f1c40f; }
   html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif}
@@ -15,33 +18,59 @@
   .saldo { font-weight:700;color:var(--green) }
   .chart-wrap{ position:relative; background:#000;border-radius:10px;padding:8px; }
   canvas{ width:100% !important; height:360px !important; display:block; border-radius:8px; }
+  .overlay-line{ position:absolute; top:8px; bottom:8px; width:2px; pointer-events:none; transform:translateX(-50%); z-index:5; }
+  .overlay-open{ background:var(--accent); display:none; left:0; opacity:.95; border-radius:2px;}
+  .overlay-close{ background:var(--red); display:none; left:0; opacity:.95; border-radius:2px;}
   .side{ display:flex;flex-direction:column;gap:12px; }
   .card{ background:#0f1113;padding:12px;border-radius:10px; }
+  .small { color:var(--muted); font-size:13px }
+  .big { font-size:20px;font-weight:700 }
+  .controls { display:flex;flex-direction:column; gap:8px; margin-top:8px }
+  select,input[type="number"]{ padding:8px;border-radius:8px;border:1px solid #222;background:#0b0b0b;color:#fff }
+  .btn-row{ display:flex; gap:8px; }
+  .btn{ flex:1;padding:10px;border-radius:8px;border:none;font-weight:700;cursor:pointer;color:#fff }
+  .btn-up{ background:linear-gradient(135deg,var(--green),#27ae60) }
+  .btn-down{ background:linear-gradient(135deg,var(--red),#c0392b) }
+  .btn:disabled{ opacity:.5; cursor:not-allowed }
+  .status { margin-top:8px;padding:10px;border-radius:8px;background:#070708;text-align:center;font-weight:700 }
+  .result-win{ color:var(--green); font-weight:900 }
+  .result-lose{ color:var(--red); font-weight:900 }
   .small-muted{ color:#9aa0a6; font-size:13px }
-  #timeAxisContainer{margin-top:10px;background:#0d0d0f;padding:8px;border-radius:8px;overflow-x:auto;white-space:nowrap;font-family:Inter;font-size:12px;color:#9aa0a6;scroll-behavior:smooth}
+  #loginScreen input{box-sizing:border-box}
+  .top-controls { display:flex; gap:8px; align-items:center; }
+  .icon-btn { background:#222;border:1px solid #222;color:#fff;padding:8px;border-radius:8px;cursor:pointer }
+  .select-interval{ min-width:140px }
+
+  /* TIMELINE STYLES */
+  .timeline-wrap { margin-top:12px; background:#070708;padding:6px;border-radius:8px; overflow:hidden; }
+  .timeline-scroll { display:flex; gap:2px; align-items:center; height:34px; overflow-x:auto; scrollbar-width:thin; padding-bottom:6px; cursor:grab; }
+  .timeline-item { min-width:74px; flex:0 0 auto; text-align:center; font-size:12px; color:#cfcfcf; padding:6px 8px; border-radius:6px; background:transparent; user-select:none; }
+  .timeline-item.past { color:#7b7f83; }
+  .timeline-item.now { color:var(--accent); font-weight:800; background:rgba(241,196,15,0.06); }
+  .timeline-item.future { color:#cfcfcf; }
+  .timeline-time-range { font-size:13px; color:#9aa0a6; margin-top:6px; text-align:center; }
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
+<!-- LOGIN SCREEN -->
 <div id="loginScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Inter">
   <h1 style="margin-bottom:20px;font-size:32px;font-weight:800">TREDIO</h1>
   <div style="background:#111217;padding:20px;border-radius:12px;width:320px;box-shadow:0 0 20px rgba(0,0,0,0.5)">
-    <input id="loginUser" placeholder="Username" />
-    <input id="loginPass" placeholder="Password" type="password" />
-    <button id="btnLogin">LOGIN</button>
+    <input id="loginUser" placeholder="Username" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:none;background:#0b0b0b;color:white" />
+    <input id="loginPass" placeholder="Password" type="password" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:none;background:#0b0b0b;color:white" />
+    <button id="btnLogin" style="width:100%;padding:10px;border:none;border-radius:8px;background:#2ecc71;font-weight:700;color:#fff;cursor:pointer">LOGIN</button>
     <div id="loginError" style="margin-top:10px;color:#e74c3c;font-size:14px;display:none">Username / Password salah!</div>
   </div>
 </div>
 
-<!-- MAIN APP -->
-<div class="app" id="mainApp" style="display:none">
+<!-- MAIN APP (hidden until login) -->
+<div class="app" style="display:none" id="mainApp">
   <div class="panel">
-
     <div class="header">
       <div>
-        <div style="font-size:15px;color:#ddd">📈 Grafik Harga — Batubara Premium</div>
-        <div class="small-muted">Realtime detik + kontrol admin per menit</div>
+        <div style="font-size:14px;color:#ddd">📈 Grafik Harga — Batubara Premium</div>
+        <div class="small-muted">Pergerakan realtime (detik) — Acuan per menit tetap</div>
       </div>
       <div style="text-align:right">
         <div class="small-muted">Saldo Real:</div>
@@ -49,144 +78,492 @@
       </div>
     </div>
 
-    <div class="chart-wrap">
+    <div class="chart-wrap" id="chartWrap">
       <canvas id="chartCanvas"></canvas>
-    </div>
+      <div id="overlayOpen" class="overlay-line overlay-open"></div>
+      <div id="overlayClose" class="overlay-line overlay-close"></div>
 
-    <div id="timeAxisContainer"></div>
+      <!-- TIMELINE: 5 MENIT WINDOW, DRAG & SCROLL -->
+      <div class="timeline-wrap" aria-hidden="false">
+        <div id="timelineScroll" class="timeline-scroll"></div>
+        <div id="timelineRange" class="timeline-time-range"></div>
+      </div>
+    </div>
 
     <div style="display:flex;justify-content:space-between;margin-top:10px;">
       <div class="small-muted">Harga Buka: <span id="txtOpen">-</span></div>
       <div class="small-muted">Harga Sekarang: <span id="txtNow">-</span></div>
       <div class="small-muted">Countdown: <span id="txtCountdown">60</span>s</div>
     </div>
-
   </div>
 
   <div class="side">
     <div class="card">
-      <div class="small-muted">Nominal</div>
-
-      <select id="quickAmount">
-        <option value="">Pilih</option>
-        <option value="140000">140.000</option>
-        <option value="240000">240.000</option>
-        <option value="700000">700.000</option>
-        <option value="1400000">1.400.000</option>
-      </select>
-
-      <input id="manualAmount" type="number" placeholder="Manual (Rp)" />
-
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button id="btnUp" class="btn-up">⬆ NAIK</button>
-        <button id="btnDown" class="btn-down">⬇ TURUN</button>
+      <div class="top-controls">
+        <button id="soundToggle" class="icon-btn" title="Suara ON/OFF">🔊</button>
+        <select id="intervalSelect" class="select-interval" title="Pilih interval (menit)">
+          <option value="1">1 menit</option>
+          <option value="5" selected>5 menit</option>
+          <option value="10">10 menit</option>
+          <option value="20">20 menit</option>
+        </select>
+        <div style="flex:1;text-align:right;color:#9aa0a6;font-size:13px">Durasi taruhan</div>
       </div>
 
-      <div class="small-muted" style="margin-top:8px">
-        <div>Hasil terakhir: <span id="lastResult">-</span></div>
-        <div>Harga Tutup: <span id="txtClose">-</span></div>
+      <div style="margin-top:10px" class="small-muted">Pilih Nominal Cepat</div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <select id="quickAmount" style="flex:1">
+          <option value="">Pilih Nominal Cepat</option>
+          <option value="140000">140.000</option>
+          <option value="240000">240.000</option>
+          <option value="700000">700.000</option>
+          <option value="1400000">1.400.000</option>
+          <option value="14000000">14.000.000</option>
+          <option value="30000000">30.000.000</option>
+          <option value="74000000">74.000.000</option>
+        </select>
       </div>
 
+      <div style="margin-top:8px">
+        <input id="manualAmount" type="number" placeholder="Atau masukkan manual (Rp)" style="width:100%" />
+      </div>
+
+      <div class="controls">
+        <div class="btn-row">
+          <button id="btnUp" class="btn btn-up">⬆ PASANG NAIK</button>
+          <button id="btnDown" class="btn btn-down">⬇ PASANG TURUN</button>
+        </div>
+
+        <div class="status" id="statusBox">Menunggu transaksi...</div>
+
+        <div class="small-muted" style="margin-top:8px">
+          <div>Hasil terakhir: <span id="lastResult">-</span></div>
+          <div>Harga Tutup (last): <span id="txtClose">-</span></div>
+        </div>
+      </div>
     </div>
+
   </div>
 </div>
 
 <script>
-// LOGIN
-btnLogin.onclick = () => {
-  if (loginUser.value === "TRADERPRO2025" && loginPass.value === "120288") {
-    loginScreen.style.display = "none";
-    mainApp.style.display = "grid";
-  } else loginError.style.display = "block";
-};
+window.addEventListener('DOMContentLoaded', ()=>{
 
-// PRICE SYSTEM
-function loadAdminPrices(){
-  return JSON.parse(localStorage.getItem("adminPrices") || "{}");
-}
+  // LOGIN LOGIC
+  const loginScreen = document.getElementById('loginScreen');
+  const mainApp = document.getElementById('mainApp');
+  const btnLogin = document.getElementById('btnLogin');
+  const loginError = document.getElementById('loginError');
 
-function getAdminMinutePrice(){
-  const now = new Date();
-  const key = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:00`;
-  const prices = loadAdminPrices();
-  return prices[key] ?? null;
-}
-
-let currentPrice = 75000;
-
-// harga per detik naik–turun max Rp500
-function getRandomTick(base){
-  return base + (Math.random() * 1000 - 500);
-}
-
-// CHART
-const ctx = chartCanvas.getContext("2d");
-const chart = new Chart(ctx, {
-  type:"line",
-  data:{ labels:[], datasets:[{data:[], borderColor:"#2ecc71", pointRadius:0, tension:0.3}] },
-  options:{ animation:false, responsive:true, plugins:{legend:{display:false}} }
-});
-
-function pushPoint(price){
-  chart.data.labels.push("");
-  chart.data.datasets[0].data.push(price);
-  if(chart.data.labels.length > 120){
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-  }
-  chart.update();
-}
-
-// UPDATE PRICE EACH SECOND
-setInterval(()=>{
-  const adminPrice = getAdminMinutePrice();
-  if(adminPrice !== null){
-    currentPrice = adminPrice;
-  } else {
-    currentPrice = getRandomTick(currentPrice);
-  }
-
-  txtNow.textContent = Math.round(currentPrice);
-  pushPoint(currentPrice);
-},1000);
-
-// TIME AXIS
-function generateTimes(){
-  let arr=[];
-  for(let h=0;h<24;h++){
-    for(let m=0;m<60;m++){
-      for(let s=1;s<=60;s++){
-        arr.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
-      }
+  btnLogin.addEventListener('click', ()=>{
+    const u = document.getElementById('loginUser').value.trim();
+    const p = document.getElementById('loginPass').value.trim();
+    if(u === 'TRADERPRO2025' && p === '120288'){
+      loginScreen.style.display = 'none';
+      mainApp.style.display = 'grid';
+    } else {
+      loginError.style.display = 'block';
     }
-  }
-  return arr;
-}
-const FULL_TIMES = generateTimes();
-
-function renderAxis(){
-  const box = timeAxisContainer;
-  box.innerHTML="";
-
-  const now = new Date();
-  const nowStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-  const idx = FULL_TIMES.indexOf(nowStr);
-
-  const L = Math.max(0, idx - 200);
-  const R = Math.min(FULL_TIMES.length - 1, idx + 200);
-
-  FULL_TIMES.slice(L,R).forEach(t=>{
-    const span=document.createElement("span");
-    span.textContent=t;
-    span.style.padding="4px 10px";
-    span.style.marginRight="4px";
-    span.style.borderRadius="6px";
-    span.style.background = t===nowStr ? "#2ecc71" : "#111217";
-    span.style.color = t===nowStr ? "#000" : "#9aa0a6";
-    box.appendChild(span);
   });
-}
-setInterval(renderAxis,1000);
+
+  /* Harga per menit tetap (tidak diubah selain permintaan) */
+  const hargaPerMenit = [74.996,75.001,74.998,75.005,75.012,75.008,75.004,74.999,75.003,75.008,75.015,75.020,75.025,75.022,75.018,75.014,75.010,75.006,75.009,75.014,75.011,90000,175.000,50000,74.990,74.987,74.982,74.979,74.975,74.970,74.965,74.968,74.972,74.977,74.981,74.985,74.990,74.985,74.980,74.976,74.972,74.978,74.983,74.975,74.970,74.965,74.971,74.977,74.980,74.985,74.992,74.996,75.000,75.005,75.011,75.018,75.023,75.028,75.025,75.021];
+
+  let saldo = 140000000;
+  const formatIDR = v => 'Rp ' + Number(v).toLocaleString('id-ID');
+  document.getElementById('saldoText').textContent = formatIDR(saldo);
+
+  const ctx = document.getElementById('chartCanvas').getContext('2d');
+
+  const customOverlayPlugin = {
+    id: 'customOverlay',
+    afterDraw(chart, args, options){
+      const {ctx, chartArea, scales} = chart;
+      const openIdx = options.openIndex;
+      const closeIdx = options.closeIndex;
+      const total = chart.data.labels.length;
+      if(total===0) return;
+
+      function getX(idx){
+        if(idx==null) return null;
+        try{
+          return scales.x.getPixelForValue(chart.data.labels[idx]);
+        }catch(e){return null;}
+      }
+
+      const oX = getX(openIdx);
+      const cX = getX(closeIdx);
+
+      // shaded area (if both present)
+      ctx.save();
+      if(oX!==null && cX!==null){
+        const L = Math.min(oX,cX);
+        const R = Math.max(oX,cX);
+        ctx.fillStyle = 'rgba(241,196,15,0.12)';
+        ctx.fillRect(L, chartArea.top, R-L, chartArea.bottom-chartArea.top);
+      } else if (oX!==null && cX===null){
+        // if close not set yet, shade from open to right edge lightly
+        ctx.fillStyle = 'rgba(241,196,15,0.06)';
+        ctx.fillRect(oX, chartArea.top, chartArea.right - oX, chartArea.bottom-chartArea.top);
+      }
+      ctx.restore();
+
+      // vertical lines
+      ctx.save();
+      if(oX!==null){
+        ctx.beginPath(); ctx.strokeStyle='rgba(241,196,15,0.95)'; ctx.setLineDash([6,4]); ctx.lineWidth=2;
+        ctx.moveTo(oX,chartArea.top);ctx.lineTo(oX,chartArea.bottom);ctx.stroke();
+      }
+      if(cX!==null){
+        ctx.beginPath(); ctx.strokeStyle='rgba(231,76,60,0.95)'; ctx.setLineDash([]); ctx.lineWidth=2;
+        ctx.moveTo(cX,chartArea.top);ctx.lineTo(cX,chartArea.bottom);ctx.stroke();
+      }
+      ctx.restore();
+    }
+  };
+
+  Chart.register(customOverlayPlugin);
+
+  const chart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:[], datasets:[{label:'Harga',data:[],borderColor:'#2ecc71',backgroundColor:'rgba(46,204,113,0.06)',pointRadius:0,tension:0.28,borderWidth:2}] },
+    options:{ animation:false,responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},customOverlay:{openIndex:null,closeIndex:null}},
+      scales:{x:{ticks:{display:false},grid:{color:'#222'}},y:{ticks:{color:'#9aa0a6'},grid:{color:'#222'}}}
+    }
+  });
+
+  function getBaseMinute(){
+    const m = new Date().getMinutes();
+    const idx = (m===0?59:m-1);
+    return hargaPerMenit[idx];
+  }
+
+  // Per-detikan harga: perubahan magnitudo antara 0..500 Rupiah (arah acak).
+  // Chart memakai skala ~75.000 -> angka 75.something, jadi kita konversi rupiah ke unit chart dengan /1000.
+  function getHargaDetik(){
+    // gunakan last value jika ada, jika belum gunakan base per menit
+    const last = chart.data.datasets[0].data.slice(-1)[0];
+    const base = (last != null) ? last : getBaseMinute();
+
+    // magnitude in Rupiah between 0 and 500
+    const magnitudeRupiah = Math.random() * 500; // [0,500)
+    // pick sign randomly (+ or -) so ada naik/turun. magnitude >=0 by permintaan.
+    const sign = Math.random() < 0.5 ? -1 : 1;
+    const deltaChart = (sign * magnitudeRupiah) / 1000; // convert rupiah->chart units
+
+    let newPrice = base + deltaChart;
+
+    // jangan sampai negatif
+    if(newPrice <= 0) newPrice = Math.max(0.001, base + Math.abs(deltaChart));
+
+    // round to 3 decimals for display parity
+    return +(newPrice);
+  }
+
+  // sound
+  let audioCtx = null;
+  let soundEnabled = true;
+  const soundToggle = document.getElementById('soundToggle');
+  soundToggle.addEventListener('click', ()=>{
+    soundEnabled = !soundEnabled;
+    soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+  });
+
+  function playTick(){
+    if(document.getElementById('loginScreen') && document.getElementById('loginScreen').style.display !== 'none') return;
+    if(!soundEnabled) return;
+    try {
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(1000, audioCtx.currentTime);
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.06, audioCtx.currentTime + 0.01);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12);
+      o.stop(audioCtx.currentTime + 0.15);
+    } catch(e){ /* ignore playback errors */ }
+  }
+
+  let labelCounter = 0;
+  function pushPoint(h){
+    chart.data.labels.push(labelCounter++);
+    chart.data.datasets[0].data.push(h);
+    if(chart.data.labels.length>120){ chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+    chart.update('none');
+  }
+
+  // TIMELINE LOGIC -------------------------------------------------------
+  const timelineScroll = document.getElementById('timelineScroll');
+  const timelineRange = document.getElementById('timelineRange');
+  const TIMELINE_WINDOW_SECONDS = 5 * 60; // 5 menit = 300 detik
+  let timelineTimes = []; // array of Date objects for each second in window
+  let userIsDraggingTimeline = false;
+  let autoScrollTimeline = true; // auto-scroll to keep current range visible unless user drags
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function formatTime(t){
+    return pad2(t.getHours()) + ':' + pad2(t.getMinutes()) + ':' + pad2(t.getSeconds());
+  }
+
+  // initialize timeline: from now (rounded to second) to now + 5min
+  function initTimeline(){
+    const now = new Date();
+    now.setMilliseconds(0);
+    timelineTimes = [];
+    for(let i=0;i<TIMELINE_WINDOW_SECONDS;i++){
+      const d = new Date(now.getTime() + i*1000);
+      timelineTimes.push(d);
+    }
+    renderTimeline();
+    // scroll timeline to show "now" at left-most position initially
+    requestAnimationFrame(()=> {
+      timelineScroll.scrollLeft = 0;
+    });
+  }
+
+  function renderTimeline(){
+    timelineScroll.innerHTML = '';
+    const now = new Date();
+    now.setMilliseconds(0);
+
+    for(let i=0;i<timelineTimes.length;i++){
+      const d = timelineTimes[i];
+      const el = document.createElement('div');
+      el.className = 'timeline-item';
+      // mark past / now / future relative to actual now
+      if(d.getTime() < now.getTime()) el.classList.add('past');
+      else if(Math.abs(d.getTime() - now.getTime()) < 1000) el.classList.add('now');
+      else el.classList.add('future');
+      el.textContent = formatTime(d);
+      timelineScroll.appendChild(el);
+    }
+
+    // update range label to show first and last visible times (leftmost and rightmost of current window)
+    const left = timelineTimes[0];
+    const right = timelineTimes[timelineTimes.length - 1];
+    timelineRange.textContent = `${formatTime(left)}  S/D  ${formatTime(right)}`;
+  }
+
+  // advance timeline by 1 second (recycle array)
+  function advanceTimelineOneSecond(){
+    const last = timelineTimes[timelineTimes.length - 1];
+    const next = new Date(last.getTime() + 1000);
+    timelineTimes.shift();
+    timelineTimes.push(next);
+    // if not user dragging and autoScrollTimeline true, keep left aligned (scrollLeft=0)
+    if(autoScrollTimeline && !userIsDraggingTimeline){
+      // when new element appended, keep view at start (current moment at left)
+      timelineScroll.scrollLeft = 0;
+    }
+    renderTimeline();
+  }
+
+  // enable drag-to-scroll behavior (mouse & touch)
+  (function enableDragScroll(el){
+    let isDown = false;
+    let startX, scrollLeftStart;
+    el.addEventListener('mousedown', (e)=>{
+      isDown = true;
+      userIsDraggingTimeline = true;
+      autoScrollTimeline = false;
+      el.style.cursor = 'grabbing';
+      startX = e.pageX - el.offsetLeft;
+      scrollLeftStart = el.scrollLeft;
+    });
+    window.addEventListener('mouseup', ()=>{
+      if(isDown) {
+        isDown = false;
+        el.style.cursor = 'grab';
+        // keep userIsDraggingTimeline true for a short time to avoid auto jump; allow auto-scroll after brief idle
+        setTimeout(()=>{ userIsDraggingTimeline = false; }, 1200);
+      }
+    });
+    el.addEventListener('mousemove', (e)=>{
+      if(!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - el.offsetLeft;
+      const walk = (x - startX) * 1; // scroll-speed multiplier
+      el.scrollLeft = scrollLeftStart - walk;
+    });
+
+    // touch
+    el.addEventListener('touchstart', (e)=>{
+      isDown = true;
+      userIsDraggingTimeline = true;
+      autoScrollTimeline = false;
+      startX = e.touches[0].pageX - el.offsetLeft;
+      scrollLeftStart = el.scrollLeft;
+    });
+    el.addEventListener('touchend', ()=>{
+      if(isDown) {
+        isDown = false;
+        setTimeout(()=>{ userIsDraggingTimeline = false; }, 1200);
+      }
+    });
+    el.addEventListener('touchmove', (e)=>{
+      if(!isDown) return;
+      const x = e.touches[0].pageX - el.offsetLeft;
+      const walk = (x - startX) * 1;
+      el.scrollLeft = scrollLeftStart - walk;
+    });
+
+    // if user uses wheel horizontally, treat as interaction
+    el.addEventListener('wheel', (ev)=>{
+      if(Math.abs(ev.deltaX) > 0 || Math.abs(ev.deltaY) > 0){
+        userIsDraggingTimeline = true;
+        autoScrollTimeline = false;
+        clearTimeout(el._wheelTO);
+        el._wheelTO = setTimeout(()=>{ userIsDraggingTimeline = false; }, 1000);
+      }
+    });
+  })(timelineScroll);
+
+  // start timeline
+  initTimeline();
+  setInterval(advanceTimelineOneSecond, 1000);
+
+  // CHART & DATA FLOW ---------------------------------------------------
+  // drive chart per second, play tick if enabled
+  setInterval(()=>{
+    const h = getHargaDetik();
+    document.getElementById('txtNow').textContent = h.toFixed(3);
+    pushPoint(h);
+    playTick();
+  },1000);
+
+  // trading state (unchanged)
+  let tradingActive=false, openPrice=null, openIndex=null, closeIndex=null, countdown=60, timer=null, chosenAmount=0;
+  const txtOpen=document.getElementById('txtOpen');
+  const txtClose=document.getElementById('txtClose');
+  const txtCountdown=document.getElementById('txtCountdown');
+  const statusBox=document.getElementById('statusBox');
+  const intervalSelect = document.getElementById('intervalSelect');
+
+  function pickAmount(){
+    const q=Number(document.getElementById('quickAmount').value||0);
+    const m=Number(document.getElementById('manualAmount').value||0);
+    return m>0?m:(q>0?q:0);
+  }
+
+  function setControlsDisabled(disabled){
+    document.getElementById('btnUp').disabled = disabled;
+    document.getElementById('btnDown').disabled = disabled;
+    document.getElementById('quickAmount').disabled = disabled;
+    document.getElementById('manualAmount').disabled = disabled;
+    intervalSelect.disabled = disabled;
+  }
+
+  function startTrade(dir){
+    if(tradingActive) { alert('Transaksi masih berjalan'); return; }
+    chosenAmount=pickAmount();
+    if(!chosenAmount) return alert('Nominal belum dipilih');
+    if(chosenAmount>saldo) return alert('Saldo tidak cukup');
+
+    const last = chart.data.datasets[0].data.slice(-1)[0];
+    openPrice = last;
+    openIndex = chart.data.labels.length - 1;
+    closeIndex = null;
+
+    // Show open line immediately via plugin option
+    chart.options.plugins.customOverlay.openIndex = openIndex;
+    chart.options.plugins.customOverlay.closeIndex = null;
+    chart.update();
+
+    txtOpen.textContent = openPrice.toFixed(3);
+    txtClose.textContent = '-';
+
+    // lock controls
+    setControlsDisabled(true);
+
+    // compute countdown from interval select (in minutes -> seconds)
+    const minutes = Number(intervalSelect.value) || 1;
+    countdown = minutes * 60;
+    txtCountdown.textContent = countdown;
+    tradingActive = true;
+
+    // show immediate status (NETRAL, then updated per tick)
+    statusBox.classList.remove('result-win','result-lose');
+    statusBox.textContent = 'NETRAL';
+
+    // start per-second check until countdown end
+    timer = setInterval(()=>{
+      countdown--;
+      txtCountdown.textContent = countdown;
+
+      // get current price
+      const current = chart.data.datasets[0].data.slice(-1)[0];
+      // decide temporary win/lose given direction
+      let sementara = 'NETRAL';
+      if(dir === 'naik'){
+        if(current > openPrice) sementara = 'MENANG';
+        else if(current < openPrice) sementara = 'KALAH';
+      } else {
+        if(current < openPrice) sementara = 'MENANG';
+        else if(current > openPrice) sementara = 'KALAH';
+      }
+
+      // update visual status (only MENANG/KALAH/NETRAL)
+      statusBox.classList.remove('result-win','result-lose');
+      if(sementara === 'MENANG'){
+        statusBox.textContent = 'MENANG';
+        statusBox.classList.add('result-win');
+      } else if(sementara === 'KALAH'){
+        statusBox.textContent = 'KALAH';
+        statusBox.classList.add('result-lose');
+      } else {
+        statusBox.textContent = 'NETRAL';
+      }
+
+      // when countdown ends -> finalize
+      if(countdown <= 0){
+        clearInterval(timer);
+        timer = null;
+
+        const final = chart.data.datasets[0].data.slice(-1)[0];
+        const win = (dir === 'naik' && final > openPrice) || (dir === 'turun' && final < openPrice);
+
+        if(win){
+          saldo += chosenAmount;
+          statusBox.classList.remove('result-lose');
+          statusBox.classList.add('result-win');
+          statusBox.textContent = `MENANG +${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
+          document.getElementById('lastResult').textContent = 'MENANG';
+        } else {
+          saldo -= chosenAmount;
+          statusBox.classList.remove('result-win');
+          statusBox.classList.add('result-lose');
+          statusBox.textContent = `KALAH -${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
+          document.getElementById('lastResult').textContent = 'KALAH';
+        }
+
+        document.getElementById('saldoText').textContent = formatIDR(saldo);
+        txtClose.textContent = final.toFixed(3);
+
+        // set closeIndex so plugin draws close line and shading
+        closeIndex = chart.data.labels.length - 1;
+        chart.options.plugins.customOverlay.closeIndex = closeIndex;
+        chart.update();
+
+        tradingActive = false;
+        // unlock controls
+        setControlsDisabled(false);
+      }
+    }, 1000);
+  }
+
+  document.getElementById('btnUp').onclick = () => startTrade('naik');
+  document.getElementById('btnDown').onclick = () => startTrade('turun');
+
+  document.getElementById('quickAmount').addEventListener('change', e => {
+    document.getElementById('manualAmount').value = e.target.value;
+  });
+
+});
 </script>
+
 </body>
 </html>
