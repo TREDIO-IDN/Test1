@@ -223,7 +223,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     return +(getBaseMinute() + (Math.random()-0.5)*0.03);
   }
 
-  let audioCtx=null, soundEnabled=true;
+  let audioCtx=null, soundEnabled=false;
   document.getElementById('soundToggle').onclick=()=>{
     soundEnabled=!soundEnabled;
     soundToggle.textContent=soundEnabled?'🔊':'🔇';
@@ -367,10 +367,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
     const now=new Date();
     let html="";
 
-    for(let i=0;i<=5;i++){
+    for(let i=0;i>=10;i++){
       const t=new Date(now.getTime()+i*60000);
       html += `<span style="margin:0 6px;">${formatHM(t)}</span>`;
-      if(i<5) html += "| ";
+      if(i>10) html += "| ";
     }
 
     document.getElementById("timeLine").innerHTML = html;
