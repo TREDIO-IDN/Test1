@@ -1,264 +1,326 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Binomo Style</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TREDIO Fixed Full</title>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-/* ===================== GLOBAL ===================== */
-body{
-  margin:0;
-  background:#0d1117;
-  color:white;
-  font-family:Arial, sans-serif;
-}
-.hide{display:none}
-
-/* ===================== LOGIN ===================== */
-#loginScreen{
-  height:100vh;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  background:#000;
-}
-#loginBox{
-  width:90%;
-  max-width:330px;
-  background:#141a24;
-  padding:20px;
-  border-radius:12px;
-  box-shadow:0 0 10px #000;
-}
-input{
-  width:100%;
-  padding:12px;
-  margin:8px 0;
-  border-radius:8px;
-  border:none;
-  background:#0d1117;
-  color:white;
-  font-size:15px;
-}
-button{
-  width:100%;
-  padding:12px;
-  margin-top:10px;
-  background:#ffcc00;
-  color:black;
-  border:none;
-  font-weight:bold;
-  font-size:16px;
-  border-radius:8px;
-}
-
-/* ===================== APP MAIN ===================== */
-#mainApp{
-  display:none;
-  height:100vh;
-  grid-template-rows:auto 1fr auto;
-}
-
-/* ===================== SOUND BUTTON ===================== */
-#soundBtn{
-  position:absolute;
-  right:10px;
-  top:10px;
-  background:#222;
-  padding:8px 12px;
-  border-radius:10px;
-  font-size:14px;
-  cursor:pointer;
-}
-
-/* ===================== CHART WRAPPER ===================== */
-#chartWrap{
-  position:relative;
-  height:330px;
-  background:#080c12;
-  border-top:1px solid #222;
-  border-bottom:1px solid #222;
-}
-
-/* ===================== TIMELINE ===================== */
-#timelineOverlay{
-  position:absolute;
-  left:4px;
-  right:4px;
-  bottom:2px;
-  height:26px;
-  pointer-events:none;
-  display:flex;
-  align-items:flex-end;
-  font-size:9px;
-  z-index:6;
-}
-
-.time-slot{
-  flex:1;
-  text-align:center;
-  position:relative;
-}
-
-.time-slot.now{
-  color:#ffcc00;
-  font-weight:bold;
-}
-
-.time-slot .vline{
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  bottom:14px;
-  width:1px;
-  height:140px;
-  background:rgba(255,255,255,0.05);
-}
-
-/* ===================== PRICE PANEL ===================== */
-#priceInfo{
-  background:#111;
-  padding:10px;
-  text-align:center;
-  font-size:18px;
-  border-top:1px solid #222;
-}
-
+  :root{ --bg:#0b0b0c; --panel:#111217; --muted:#9aa0a6; --green:#2ecc71; --red:#e74c3c; --accent:#f1c40f; }
+  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif}
+  .app{ max-width:980px;margin:12px auto;padding:12px; display:grid;grid-template-columns:1fr 360px;gap:12px; }
+  @media (max-width:900px){ .app{ grid-template-columns:1fr; padding:8px } }
+  .panel{ background:linear-gradient(180deg,#070708 0%, var(--panel) 100%); border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,0.6); }
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .saldo { font-weight:700;color:var(--green) }
+  .chart-wrap{ position:relative; background:#000;border-radius:10px;padding:8px; }
+  canvas{ width:100% !important; height:360px !important; display:block; border-radius:8px; }
+  .overlay-line{ position:absolute; top:8px; bottom:8px; width:2px; pointer-events:none; transform:translateX(-50%); z-index:5; }
+  .side{ display:flex;flex-direction:column;gap:12px; }
+  .card{ background:#0f1113;padding:12px;border-radius:10px; }
+  .small { color:var(--muted); font-size:13px }
+  .big { font-size:20px;font-weight:700 }
+  .controls { display:flex;flex-direction:column; gap:8px; margin-top:8px }
+  select,input[type="number"]{ padding:8px;border-radius:8px;border:1px solid #222;background:#0b0b0b;color:#fff }
+  .btn-row{ display:flex; gap:8px; }
+  .btn{ flex:1;padding:10px;border-radius:8px;border:none;font-weight:700;cursor:pointer;color:#fff }
+  .btn-up{ background:linear-gradient(135deg,var(--green),#27ae60) }
+  .btn-down{ background:linear-gradient(135deg,var(--red),#c0392b) }
+  .btn:disabled{ opacity:.5; cursor:not-allowed }
+  .status { margin-top:8px;padding:10px;border-radius:8px;background:#070708;text-align:center;font-weight:700 }
+  .result-win{ color:var(--green); font-weight:900 }
+  .result-lose{ color:var(--red); font-weight:900 }
+  .small-muted{ color:#9aa0a6; font-size:13px }
+  .top-controls { display:flex; gap:8px; align-items:center; }
+  .icon-btn { background:#222;border:1px solid #222;color:#fff;padding:8px;border-radius:8px;cursor:pointer }
+  .select-interval{ min-width:140px }
 </style>
 </head>
 <body>
 
-<!-- ============== LOGIN SCREEN ============== -->
-<div id="loginScreen">
-  <div id="loginBox">
-    <h2 style="text-align:center;margin-bottom:10px;">Login</h2>
+<!-- LOGIN -->
+<div id="loginScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
+  <h1 style="margin-bottom:20px;font-size:32px;font-weight:800">TREDIO</h1>
 
-    <input type="text" id="loginUser" placeholder="Username">
-    <input type="password" id="loginPass" placeholder="Password">
+  <div style="background:#111217;padding:20px;border-radius:12px;width:320px;box-shadow:0 0 20px rgba(0,0,0,0.5)">
+    <input id="loginUser" placeholder="Username" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:none;background:#0b0b0b;color:white" />
+    <input id="loginPass" placeholder="Password" type="password" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:none;background:#0b0b0b;color:white" />
+    <button id="btnLogin" style="width:100%;padding:10px;border:none;border-radius:8px;background:#2ecc71;font-weight:700;color:#fff;cursor:pointer">LOGIN</button>
+    <div id="loginError" style="margin-top:10px;color:#e74c3c;font-size:14px;display:none">Username / Password salah!</div>
+  </div>
+</div>
 
-    <button id="btnLogin">LOGIN</button>
-    <div id="loginError" style="color:#ff4444;text-align:center;display:none;margin-top:10px;">
-      Username atau password salah!
+<!-- APP -->
+<div class="app" style="display:none" id="mainApp">
+
+  <div class="panel">
+
+    <div class="header">
+      <div>
+        <div style="font-size:14px;color:#ddd">Harga Batubara Premium</div>
+
+        <a href="https://wa.me/message/HWGD7LUY5VQIF1" target="_blank" class="small-muted" style="text-decoration:none;color:red;font-weight:bold;">
+          Deposit / Withdraw
+        </a>
+      </div>
+
+      <div style="text-align:right">
+        <div class="small-muted">Saldo Real:</div>
+        <div class="saldo" id="saldoText">Rp 140.000.000</div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="chartCanvas"></canvas>
+    </div>
+
+    <div id="timeLine" style="margin-top:8px;font-size:11px;text-align:center;color:#ff4444;font-weight:bold;"></div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:10px;">
+      <div class="small-muted">Harga Buka: <span id="txtOpen">-</span></div>
+      <div class="small-muted">Harga Sekarang: <span id="txtNow">-</span></div>
+      <div class="small-muted">Countdown: <span id="txtCountdown">Durasi taruhan</span></div>
+    </div>
+
+  </div>
+
+  <div class="side">
+    <div class="card">
+
+      <div class="top-controls">
+        <button id="soundToggle" class="icon-btn">🔊</button>
+        <select id="intervalSelect" class="select-interval">
+          <option value="1">1 menit</option>
+          <option value="5" selected>5 menit</option>
+          <option value="10">10 menit</option>
+          <option value="20">20 menit</option>
+        </select>
+        <div style="flex:1;text-align:right;color:#9aa0a6;font-size:13px">Durasi taruhan</div>
+      </div>
+
+      <div style="margin-top:10px" class="small-muted">Pilih Nominal Cepat</div>
+      <select id="quickAmount" style="width:100%;margin-top:6px;">
+        <option value="">Pilih</option>
+        <option value="140000">140.000</option>
+        <option value="240000">240.000</option>
+        <option value="700000">700.000</option>
+        <option value="1400000">1.400.000</option>
+        <option value="14000000">14.000.000</option>
+        <option value="30000000">30.000.000</option>
+        <option value="74000000">74.000.000</option>
+      </select>
+
+      <input id="manualAmount" type="number" placeholder="Masukkan nominal (Rp)" style="width:100%;margin-top:8px;" />
+
+      <div class="controls">
+        <div class="btn-row">
+          <button id="btnUp" class="btn btn-up">⬆ PASANG NAIK</button>
+          <button id="btnDown" class="btn btn-down">⬇ PASANG TURUN</button>
+        </div>
+
+        <div class="status" id="statusBox">Menunggu transaksi...</div>
+
+        <div class="small-muted" style="margin-top:8px">
+          <div>Hasil terakhir: <span id="lastResult">-</span></div>
+          <div>Harga Tutup (last): <span id="txtClose">-</span></div>
+        </div>
+      </div>
+
     </div>
   </div>
-</div>
-
-<!-- ============== MAIN APP ============== -->
-<div id="mainApp">
-
-  <div id="chartWrap">
-    <div id="soundBtn">🔇</div>
-
-    <!-- Timeline -->
-    <div id="timelineOverlay"></div>
-  </div>
-
-  <div id="priceInfo">Harga: <span id="priceNow">0.00000</span></div>
 
 </div>
-
 
 <script>
-/* ==========================================================
-   SUARA (default OFF sebelum login)
-========================================================== */
-let soundEnabled = false;
-
-const upSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound-7062.mp3");
-const downSound = new Audio("https://www.myinstants.com/media/sounds/negative_beeps-6008.mp3");
-
-function playUp(){
-  if(soundEnabled) upSound.play();
-}
-function playDown(){
-  if(soundEnabled) downSound.play();
-}
-
-document.getElementById("soundBtn").onclick = ()=>{
-  soundEnabled = !soundEnabled;
-  document.getElementById("soundBtn").innerText = soundEnabled ? "🔊" : "🔇";
-};
-
-
-/* ==========================================================
-   LOGIN SYSTEM (user + admin)
-========================================================== */
-btnLogin.addEventListener("click", ()=>{
+// LOGIN FIX
+document.getElementById("btnLogin").onclick = () => {
   const u = loginUser.value.trim();
   const p = loginPass.value.trim();
 
-  const userOK = (u === "TRADERPRO2025" && p === "120288");
-  const adminOK = (u === "ADMIN" && p === "SUPERADMIN2025");
+  if(u.length === 0 || p.length === 0) {
+    loginError.style.display = "block";
+    return;
+  }
 
-  if(userOK || adminOK){
-      loginScreen.style.display = "none";
-      mainApp.style.display = "grid";
+  loginScreen.style.display = "none";
+  mainApp.style.display = "grid";
+};
 
-      // Aktifkan suara setelah login
-      soundEnabled = true;
-      soundBtn.innerText = "🔊";
 
-  } else {
-      loginError.style.display = "block";
+// ========== DATA & CHART ==========
+const hargaPerMenit = [
+  74.996,75.001,74.998,75.005,75.012,75.008,75.004,74.999,75.003,
+  75.008,75.015,75.020,75.025,75.022,75.018,75.014,75.010,75.006,
+  75.009,75.014,75.011,74.990,74.987,74.982,74.979,74.975,74.970
+];
+
+let saldo = 140000000;
+const formatIDR = v => "Rp " + Number(v).toLocaleString("id-ID");
+saldoText.textContent = formatIDR(saldo);
+
+const ctx = document.getElementById("chartCanvas").getContext("2d");
+
+const chart = new Chart(ctx,{
+  type:"line",
+  data:{
+    labels:[],
+    datasets:[{
+      data:[],
+      borderColor:"#2ecc71",
+      backgroundColor:"rgba(46,204,113,0.06)",
+      tension:0.28,
+      borderWidth:2,
+      pointRadius:0
+    }]
+  },
+  options:{
+    animation:false,
+    responsive:true,
+    maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ ticks:{display:false},grid:{color:"#222"} },
+      y:{ ticks:{color:"#9aa0a6"},grid:{color:"#222"} }
+    }
   }
 });
 
-
-
-/* ==========================================================
-   TIMELINE BINOMO — Responsive 5–10 menit
-========================================================== */
-function pad(n){ return n.toString().padStart(2,'0'); }
-function fmt(t){ return `${pad(t.getHours())}:${pad(t.getMinutes())}`; }
-
-function updateTimeline(){
-  const box = document.getElementById("timelineOverlay");
-  const H = document.getElementById("chartWrap").offsetHeight;
-
-  let POINTS = H < 260 ? 10 : 20; // 5–10 menit
-  const SLOT = 30 * 1000;
-
-  const now = new Date();
-  const start = new Date(now.getTime() - POINTS * SLOT);
-
-  box.innerHTML = "";
-
-  for(let i=0; i<=POINTS; i++){
-    const t = new Date(start.getTime() + i * SLOT);
-
-    const div = document.createElement("div");
-    div.className = "time-slot" + (i === POINTS ? " now" : "");
-    div.innerHTML = `
-      <div style="position:relative;z-index:2">${fmt(t)}</div>
-      <div class="vline"></div>
-    `;
-    box.appendChild(div);
-  }
+// Harga acak tiap detik
+function getBaseMinute(){
+  const m=new Date().getMinutes();
+  return hargaPerMenit[m % hargaPerMenit.length];
+}
+function getHargaDetik(){
+  return +(getBaseMinute() + (Math.random()-0.5)*0.03);
 }
 
-updateTimeline();
-setInterval(updateTimeline, 1000);
-
-
-
-/* ==========================================================
-   HARGA SIMULASI (naik turun random)
-========================================================== */
-let price = 1.20000;
-
+let labelCounter=0;
 setInterval(()=>{
-  let old = price;
-  price += (Math.random() - 0.5) * 0.003;
+  const h=getHargaDetik();
+  txtNow.textContent = h.toFixed(3);
 
-  price = parseFloat(price.toFixed(5));
-  priceNow.innerText = price.toFixed(5);
+  chart.data.labels.push(labelCounter++);
+  chart.data.datasets[0].data.push(h);
 
-  if(price > old) playUp();
-  else playDown();
+  if(chart.data.labels.length>120){
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
 
-}, 900);
+  chart.update("none");
+},1000);
+
+
+// ======== TRADING ========
+let trading=false;
+let openPrice=null, countdown=60, timer=null, chosenAmount=0;
+
+function pickAmount(){
+  const q = Number(quickAmount.value||0);
+  const m = Number(manualAmount.value||0);
+  return m>0 ? m : q>0 ? q : 0;
+}
+
+function disable(x){
+  btnUp.disabled=x; btnDown.disabled=x;
+  quickAmount.disabled=x; manualAmount.disabled=x; intervalSelect.disabled=x;
+}
+
+function startTrade(dir){
+  if(trading) return alert("Transaksi masih berjalan");
+  chosenAmount = pickAmount();
+  if(!chosenAmount) return alert("Nominal belum dipilih");
+  if(chosenAmount > saldo) return alert("Saldo tidak cukup");
+
+  openPrice = chart.data.datasets[0].data.slice(-1)[0];
+  txtOpen.textContent = openPrice.toFixed(3);
+
+  countdown = Number(intervalSelect.value)*60;
+  txtCountdown.textContent = countdown;
+
+  trading = true;
+  disable(true);
+
+  statusBox.textContent = "NETRAL";
+
+  timer = setInterval(()=>{
+    countdown--;
+    txtCountdown.textContent = countdown;
+
+    const cur = chart.data.datasets[0].data.slice(-1)[0];
+    let res="NETRAL";
+
+    if(dir==="naik") res = cur>openPrice ? "MENANG" : cur<openPrice ? "KALAH" : "NETRAL";
+    else             res = cur<openPrice ? "MENANG" : cur>openPrice ? "KALAH" : "NETRAL";
+
+    statusBox.classList.remove("result-win","result-lose");
+    if(res==="MENANG") statusBox.classList.add("result-win");
+    if(res==="KALAH")  statusBox.classList.add("result-lose");
+    statusBox.textContent = res;
+
+    if(countdown<=0){
+      clearInterval(timer);
+      timer=null;
+
+      const final = chart.data.datasets[0].data.slice(-1)[0];
+      const win = (dir==="naik" && final>openPrice) || (dir==="turun" && final<openPrice);
+
+      if(win){
+        saldo += chosenAmount;
+        lastResult.textContent="MENANG";
+        statusBox.textContent = "MENANG +" + formatIDR(chosenAmount);
+        statusBox.classList.add("result-win");
+      } else {
+        saldo -= chosenAmount;
+        lastResult.textContent="KALAH";
+        statusBox.textContent = "KALAH -" + formatIDR(chosenAmount);
+        statusBox.classList.add("result-lose");
+      }
+
+      saldoText.textContent = formatIDR(saldo);
+      txtClose.textContent = final.toFixed(3);
+
+      trading=false;
+      disable(false);
+    }
+
+  },1000);
+}
+
+btnUp.onclick = ()=>startTrade("naik");
+btnDown.onclick = ()=>startTrade("turun");
+
+quickAmount.onchange = e => manualAmount.value = e.target.value;
+
+
+// ======== TIMELINE LIKE BINOMO ========
+function pad(n){ return n.toString().padStart(2,"0"); }
+function fmt(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
+function updateTimeLine(){
+  const now = new Date();
+  let html = `<div style="display:flex;width:100%;">`;
+
+  const points = 20;
+  const interval = 30 * 1000;
+
+  let start = new Date(now.getTime() - points*interval);
+
+  for(let i=0; i<=points; i++){
+    let t = new Date(start.getTime() + i*interval);
+    html += `<div style="flex:1;text-align:center;font-size:11px;">${fmt(t)}</div>`;
+  }
+
+  html += `</div>`;
+  timeLine.innerHTML = html;
+}
+
+updateTimeLine();
+setInterval(updateTimeLine,1000);
+
 </script>
 
 </body>
