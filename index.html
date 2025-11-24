@@ -6,7 +6,6 @@
 <title>TREDIO Preview (fixed)</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
 
 <style>
   :root{ --bg:#0b0b0c; --panel:#111217; --muted:#9aa0a6; --green:#2ecc71; --red:#e74c3c; --accent:#f1c40f; }
@@ -143,8 +142,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
     if(u === 'TRADERPRO2025' && p === '120288'){
       loginScreen.style.display = 'none';
       mainApp.style.display = 'grid';
-      // Mulai inisialisasi data grafik setelah login
-      initializeChartData();
     } else {
       loginError.style.display = 'block';
     }
@@ -158,7 +155,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('saldoText').textContent = formatIDR(saldo);
 
   const ctx = document.getElementById('chartCanvas').getContext('2d');
-  let chart; // Deklarasi variabel chart di luar
 
   const customOverlayPlugin = {
     id: 'customOverlay',
@@ -172,7 +168,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
       function getX(idx){
         if(idx==null) return null;
         try{
-          // Menggunakan getPixelForValue dengan label (timestamp string)
+          // Use the index within the current displayed data array for pixel calculation
           return scales.x.getPixelForValue(chart.data.labels[idx]);
         }catch(e){return null;}
       }
@@ -210,70 +206,66 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   Chart.register(customOverlayPlugin);
 
-  function initializeChartData(){
-    // Inisialisasi Chart dengan sumbu 'time' (perlu Chart.js adapter, tapi untuk kesederhanaan, kita tetap pakai type 'category' tapi dengan label waktu)
-    chart = new Chart(ctx, {
-      type:'line',
-      data:{ labels:[], datasets:[{label:'Harga',data:[],borderColor:'#2ecc71',backgroundColor:'rgba(46,204,113,0.06)',pointRadius:0,tension:0.28,borderWidth:2}] },
-      options:{ 
-        animation:false,
-        responsive:true,
-        maintainAspectRatio:false,
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
-        plugins:{
-          legend:{display:false},
-          tooltip: {
-            callbacks: {
-              title: function(context) {
-                return context[0].label; // Tampilkan label waktu
+  // --- NEW LOGIC: Time-based labels and 5-minute window ---
+  // Global variables to track data and time
+  let timeLabels = []; // Stores actual time strings
+  let priceData = []; // Stores price values
+  const maxSeconds = 5 * 60; // 5 minutes * 60 seconds = 300 points
+  let currentTime = new Date(); // Start with current time for labels
+
+  // Function to format time as HH:MM
+  const formatTime = (date) => {
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
+  const chart = new Chart(ctx, {
+    type:'line',
+    data:{ 
+      labels: timeLabels, // Use time labels
+      datasets:[{label:'Harga',data:priceData,borderColor:'#2ecc71',backgroundColor:'rgba(46,204,113,0.06)',pointRadius:0,tension:0.28,borderWidth:2}] 
+    },
+    options:{ 
+      animation:false,
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        customOverlay:{openIndex:null,closeIndex:null}
+      },
+      scales:{
+        x:{
+          // Show X-axis ticks (time labels)
+          ticks:{
+            display:true,
+            color:'#9aa0a6',
+            // Only display ticks for full minutes
+            callback: function(value, index, values) {
+              // Labels are time strings. Check if it's the start of a minute
+              // In a 5-minute window (300 points), only show 6 labels (start + 5 minutes)
+              if (index % 60 === 0) {
+                return this.getLabelForValue(value);
               }
+              return null; // Hide other ticks
             }
           },
-          customOverlay:{openIndex:null,closeIndex:null}
+          grid:{color:'#222'}
         },
-        scales:{
-          x:{ 
-            ticks:{ 
-              color:'#9aa0a6', // Tampilkan label waktu dengan warna
-              autoSkip: true,
-              maxTicksLimit: 12 
-            },
-            grid:{color:'#222'},
-            // Scroll/Pan hanya berfungsi jika menggunakan sumbu 'time' atau jika ada library eksternal
-            // Kita akan tetap menggunakan 'category' dan mengelola 120 poin terakhir (2 menit)
-            // Untuk kebutuhan scroll, perlu library 'chartjs-plugin-zoom'
-            // Tetapi karena permintaan untuk 'scroll' tanpa penambahan library, kita hanya bisa menjaga 120 titik terakhir (2 menit data detik)
-          },
-          y:{ticks:{color:'#9aa0a6'},grid:{color:'#222'}}
-        }
+        y:{ticks:{color:'#9aa0a6'},grid:{color:'#222'}}
       }
-    });
-
-    // Inisialisasi data untuk mengisi grafik dengan data 2 menit terakhir (120 detik)
-    for(let i=-119; i<=0; i++){
-      const time = moment().add(i,'seconds');
-      const h = getHargaDetik(time);
-      pushPoint(h, time);
     }
+  });
 
-    // Mulai interval driver setelah inisialisasi awal
-    setInterval(chartDriver,1000);
-  }
-
-
-  function getBaseMinute(timeObj){
-    // Menghitung indeks berdasarkan menit dari object moment (0-59)
-    const m = timeObj ? timeObj.minutes() : new Date().getMinutes();
-    const idx = m % 60; // Indeks 0 sampai 59
-    // Menggunakan sisa bagi 60 karena array hanya punya 60 elemen
+  function getBaseMinute(){
+    const m = new Date().getMinutes();
+    // Safely access price data for the minute (0-59). Use modulo for safety.
+    const idx = (m % hargaPerMenit.length); 
     return hargaPerMenit[idx];
   }
 
-  function getHargaDetik(timeObj){
-    const base = getBaseMinute(timeObj);
+  function getHargaDetik(){
+    const base = getBaseMinute();
     const fl = (Math.random()-0.5)*0.03;
     return +(base+fl);
   }
@@ -307,27 +299,34 @@ window.addEventListener('DOMContentLoaded', ()=>{
     } catch(e){ /* ignore playback errors */ }
   }
 
-  const maxPoints = 120; // Tetap 2 menit data detik
-  function pushPoint(h, timeObj = moment()){
-    const timeLabel = timeObj.format('HH:mm:ss');
-    chart.data.labels.push(timeLabel);
-    chart.data.datasets[0].data.push(h);
+  function pushPoint(h){
+    // Update current time for the label
+    currentTime = new Date();
+    timeLabels.push(formatTime(currentTime));
+    priceData.push(h);
 
-    if(chart.data.labels.length > maxPoints){ 
-      chart.data.labels.shift(); 
-      chart.data.datasets[0].data.shift(); 
+    // Remove old data to maintain the 5-minute (300 seconds) window
+    if(timeLabels.length > maxSeconds){ 
+      timeLabels.shift(); 
+      priceData.shift(); 
+      // Adjust open/close indices to the new array start
+      if(openIndex !== null) openIndex--;
+      if(closeIndex !== null) closeIndex--;
     }
+
+    // Update chart options with new relative indices
+    chart.options.plugins.customOverlay.openIndex = openIndex;
+    chart.options.plugins.customOverlay.closeIndex = closeIndex;
     chart.update('none');
   }
 
-  function chartDriver(){
-    const time = moment();
-    const h = getHargaDetik(time);
+  // drive chart per second, play tick if enabled
+  setInterval(()=>{
+    const h = getHargaDetik();
     document.getElementById('txtNow').textContent = h.toFixed(3);
-    pushPoint(h, time);
-    playTick();
-  }
-  
+    pushPoint(h);
+  },1000);
+
   // trading state
   let tradingActive=false, openPrice=null, openIndex=null, closeIndex=null, countdown=60, timer=null, chosenAmount=0;
   const txtOpen=document.getElementById('txtOpen');
@@ -351,15 +350,14 @@ window.addEventListener('DOMContentLoaded', ()=>{
   }
 
   function startTrade(dir){
-    if(!chart) { alert('Grafik belum siap.'); return; } // Tambahkan pengecekan chart
     if(tradingActive) { alert('Transaksi masih berjalan'); return; }
     chosenAmount=pickAmount();
     if(!chosenAmount) return alert('Nominal belum dipilih');
     if(chosenAmount>saldo) return alert('Saldo tidak cukup');
 
-    const last = chart.data.datasets[0].data.slice(-1)[0];
+    const last = priceData.slice(-1)[0];
     openPrice = last;
-    openIndex = chart.data.labels.length - 1;
+    openIndex = priceData.length - 1; // Index in the current array
     closeIndex = null;
 
     // Show open line immediately via plugin option
@@ -387,9 +385,13 @@ window.addEventListener('DOMContentLoaded', ()=>{
     timer = setInterval(()=>{
       countdown--;
       txtCountdown.textContent = countdown;
+      
+      // Update openIndex in case array shifted during trade
+      const lastPriceIndex = priceData.length - 1;
+      if (openIndex > 0) openIndex = openIndex - 1; 
 
       // get current price
-      const current = chart.data.datasets[0].data.slice(-1)[0];
+      const current = priceData.slice(-1)[0];
       // decide temporary win/lose given direction
       let sementara = 'NETRAL';
       if(dir === 'naik'){
@@ -417,7 +419,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
         clearInterval(timer);
         timer = null;
 
-        const final = chart.data.datasets[0].data.slice(-1)[0];
+        const final = priceData.slice(-1)[0];
         const win = (dir === 'naik' && final > openPrice) || (dir === 'turun' && final < openPrice);
 
         if(win){
@@ -438,7 +440,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
         txtClose.textContent = final.toFixed(3);
 
         // set closeIndex so plugin draws close line and shading
-        closeIndex = chart.data.labels.length - 1;
+        closeIndex = priceData.length - 1; // Index in the current array
         chart.options.plugins.customOverlay.closeIndex = closeIndex;
         chart.update();
 
