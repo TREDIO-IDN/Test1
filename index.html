@@ -40,6 +40,10 @@
   .top-controls { display:flex; gap:8px; align-items:center; }
   .icon-btn { background:#222;border:1px solid #222;color:#fff;padding:8px;border-radius:8px;cursor:pointer }
   .select-interval{ min-width:140px }
+  /* timeline styles */
+  #timeLine{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#ff4444;font-weight:bold;padding:0 6px}
+  #timeLine span{flex:1;text-align:center;opacity:0.85}
+  #timeLine span:last-child{opacity:1;color:#fff;font-weight:900}
 </style>
 </head>
 <body>
@@ -85,9 +89,7 @@
     </div>
 
     <!-- TIMELINE WAKTU -->
-    <div id="timeLine" 
-         style="margin-top:8px; font-size:13px; text-align:center; color:#ff4444; font-weight:bold;">
-    </div>
+    <div id="timeLine"></div>
 
     <!-- INFO HARGA -->
     <div style="display:flex;justify-content:space-between;margin-top:10px;">
@@ -153,9 +155,24 @@
 <script>
 window.addEventListener('DOMContentLoaded', ()=>{
 
+  // DOM references
   const loginScreen = document.getElementById('loginScreen');
   const mainApp = document.getElementById('mainApp');
   const btnLogin = document.getElementById('btnLogin');
+  const btnUp = document.getElementById('btnUp');
+  const btnDown = document.getElementById('btnDown');
+  const quickAmount = document.getElementById('quickAmount');
+  const manualAmount = document.getElementById('manualAmount');
+  const saldoText = document.getElementById('saldoText');
+  const lastResult = document.getElementById('lastResult');
+  const txtNow = document.getElementById('txtNow');
+  const txtOpen = document.getElementById('txtOpen');
+  const txtClose = document.getElementById('txtClose');
+  const txtCountdown = document.getElementById('txtCountdown');
+  const statusBox = document.getElementById('statusBox');
+  const intervalSelect = document.getElementById('intervalSelect');
+  const soundToggle = document.getElementById('soundToggle');
+
   btnLogin.addEventListener('click', ()=>{
     loginScreen.style.display = 'none';
     mainApp.style.display = 'grid';
@@ -165,7 +182,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   let saldo = 140000000;
   const formatIDR = v => 'Rp ' + Number(v).toLocaleString('id-ID');
-  document.getElementById('saldoText').textContent = formatIDR(saldo);
+  saldoText.textContent = formatIDR(saldo);
 
   const ctx = document.getElementById('chartCanvas').getContext('2d');
 
@@ -220,11 +237,12 @@ window.addEventListener('DOMContentLoaded', ()=>{
     return +(getBaseMinute() + (Math.random()-0.5)*0.03);
   }
 
+  // SOUND TOGGLE
   let audioCtx=null, soundEnabled=true;
-  document.getElementById('soundToggle').onclick=()=>{
-    soundEnabled=!soundEnabled;
-    soundToggle.textContent=soundEnabled?'🔊':'🔇';
-  };
+  soundToggle.addEventListener('click', ()=>{
+    soundEnabled = !soundEnabled;
+    soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+  });
 
   function playTick(){
     if(!soundEnabled) return;
@@ -248,122 +266,170 @@ window.addEventListener('DOMContentLoaded', ()=>{
     chart.update('none');
   }
 
+  // SMOOTH ANIMATION (requestAnimationFrame)
+  let smoothTarget = null;
+  let smoothStartPrice = null;
+  let smoothStartTime = 0;
+  const smoothDurationMs = 1800; // ~1.8s smooth final move
+
+  function startSmoothLoss(finalPrice){
+    // ensure there's at least one data point
+    if(!chart.data.datasets[0].data.length) return;
+    smoothTarget = finalPrice;
+    smoothStartPrice = chart.data.datasets[0].data[chart.data.datasets[0].data.length-1];
+    smoothStartTime = performance.now();
+    requestAnimationFrame(animateSmooth);
+  }
+
+  function animateSmooth(now){
+    if(smoothTarget === null) return;
+    const elapsed = now - smoothStartTime;
+    const t = Math.min(1, Math.max(0, elapsed / smoothDurationMs));
+    const ease = 1 - Math.pow(1 - t, 3);
+    const newPrice = smoothStartPrice + (smoothTarget - smoothStartPrice) * ease;
+
+    const lastIdx = chart.data.datasets[0].data.length - 1;
+    if(lastIdx >= 0){
+      chart.data.datasets[0].data[lastIdx] = newPrice;
+      chart.update('none');
+    }
+
+    if(t < 1){
+      requestAnimationFrame(animateSmooth);
+    } else {
+      smoothTarget = null; // finished
+    }
+  }
+
+  // forceLoss: compute final price (opposite of user's guess) and start smooth animation
+  function forceLoss(dir){
+    const cur = chart.data.datasets[0].data.slice(-1)[0] || getBaseMinute();
+    let final;
+    const offset = 0.03 + Math.random()*0.04; // 0.03 - 0.07
+    if(dir === 'naik'){
+      final = (openPrice != null ? openPrice : cur) - offset;
+    } else {
+      final = (openPrice != null ? openPrice : cur) + offset;
+    }
+    startSmoothLoss(final);
+    return final;
+  }
+
+  // periodic data generation every second (adds new point)
   setInterval(()=>{
-    const h=getHargaDetik();
-    document.getElementById('txtNow').textContent=h.toFixed(3);
-    pushPoint(h); playTick();
+    const h = getHargaDetik();
+    txtNow.textContent = h.toFixed(3);
+    pushPoint(h);
+    playTick();
   },1000);
 
+  /* ============= TRADING LOGIC ============= */
   let tradingActive=false, openPrice=null, openIndex=null, closeIndex=null, countdown=60, timer=null, chosenAmount=0;
 
-  const txtOpen=document.getElementById('txtOpen');
-  const txtClose=document.getElementById('txtClose');
-  const txtCountdown=document.getElementById('txtCountdown');
-  const statusBox=document.getElementById('statusBox');
-  const intervalSelect=document.getElementById('intervalSelect');
-
   function pickAmount(){
-    const q=Number(document.getElementById('quickAmount').value||0);
-    const m=Number(document.getElementById('manualAmount').value||0);
+    const q = Number(quickAmount.value || 0);
+    const m = Number(manualAmount.value || 0);
     return m>0?m:(q>0?q:0);
   }
 
   function setDisabled(x){
-    btnUp.disabled=x; btnDown.disabled=x;
-    quickAmount.disabled=x; manualAmount.disabled=x; intervalSelect.disabled=x;
-  }
-
-  function forceLoss(dir){
-    const last=chart.data.datasets[0].data;
-    const finalIndex=last.length-1;
-
-    if(dir==='naik'){
-      last[finalIndex] = openPrice - Math.random()*0.05;
-    } else {
-      last[finalIndex] = openPrice + Math.random()*0.05;
-    }
-
-    chart.update();
-    return last[finalIndex];
+    btnUp.disabled = x; btnDown.disabled = x;
+    quickAmount.disabled = x; manualAmount.disabled = x; intervalSelect.disabled = x;
   }
 
   function startTrade(dir){
     if(tradingActive) return alert('Transaksi masih berjalan');
-    chosenAmount=pickAmount();
+    chosenAmount = pickAmount();
     if(!chosenAmount) return alert('Nominal belum dipilih');
     if(chosenAmount>saldo) return alert('Saldo tidak cukup');
 
-    const last=chart.data.datasets[0].data.slice(-1)[0];
-    openPrice=last; openIndex=chart.data.labels.length-1;
-    closeIndex=null;
+    const last = chart.data.datasets[0].data.slice(-1)[0];
+    openPrice = last;
+    openIndex = chart.data.labels.length - 1;
+    closeIndex = null;
 
-    chart.options.plugins.customOverlay.openIndex=openIndex;
-    chart.options.plugins.customOverlay.closeIndex=null;
+    chart.options.plugins.customOverlay.openIndex = openIndex;
+    chart.options.plugins.customOverlay.closeIndex = null;
     chart.update();
 
-    txtOpen.textContent=openPrice.toFixed(3);
-    txtClose.textContent='-';
+    txtOpen.textContent = openPrice ? openPrice.toFixed(3) : '-';
+    txtClose.textContent = '-';
 
     setDisabled(true);
 
     countdown = Number(intervalSelect.value) * 60;
-    txtCountdown.textContent=countdown;
-    tradingActive=true;
+    txtCountdown.textContent = countdown;
+    tradingActive = true;
 
-    statusBox.textContent='NETRAL';
+    statusBox.classList.remove('result-win','result-lose');
+    statusBox.textContent = 'NETRAL';
 
-    timer=setInterval(()=>{
-      countdown--; txtCountdown.textContent=countdown;
+    timer = setInterval(()=>{
+      countdown--; txtCountdown.textContent = countdown;
 
-      if(countdown<=0){
-        clearInterval(timer); timer=null;
+      // show interim win/lose state before final
+      const current = chart.data.datasets[0].data.slice(-1)[0];
+      let interim = 'NETRAL';
+      if(dir === 'naik'){
+        interim = current > openPrice ? 'MENANG' : (current < openPrice ? 'KALAH' : 'NETRAL');
+      } else {
+        interim = current < openPrice ? 'MENANG' : (current > openPrice ? 'KALAH' : 'NETRAL');
+      }
 
-        let final = forceLoss(dir);
+      statusBox.classList.remove('result-win','result-lose');
+      if(interim === 'MENANG') { statusBox.textContent = 'MENANG'; statusBox.classList.add('result-win'); }
+      else if(interim === 'KALAH') { statusBox.textContent = 'KALAH'; statusBox.classList.add('result-lose'); }
+      else { statusBox.textContent = 'NETRAL'; }
 
+      if(countdown <= 0){
+        clearInterval(timer); timer = null;
+
+        // at final, force a loss (opposite direction)
+        const final = forceLoss(dir);
+
+        // apply result: always loss at final
         saldo -= chosenAmount;
-        statusBox.textContent=`KALAH -${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
+        statusBox.classList.remove('result-win');
         statusBox.classList.add('result-lose');
-        lastResult.textContent='KALAH';
+        statusBox.textContent = `KALAH -${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
+        lastResult.textContent = 'KALAH';
 
         saldoText.textContent = formatIDR(saldo);
         txtClose.textContent = final.toFixed(3);
 
-        closeIndex = chart.data.labels.length-1;
+        closeIndex = chart.data.labels.length - 1;
         chart.options.plugins.customOverlay.closeIndex = closeIndex;
         chart.update();
 
-        tradingActive=false;
+        tradingActive = false;
         setDisabled(false);
       }
     },1000);
   }
 
-  btnUp.onclick=()=>startTrade('naik');
-  btnDown.onclick=()=>startTrade('turun');
+  btnUp.addEventListener('click', ()=>startTrade('naik'));
+  btnDown.addEventListener('click', ()=>startTrade('turun'));
 
-  quickAmount.onchange=e=>{
-    manualAmount.value=e.target.value;
-  };
+  quickAmount.addEventListener('change', e=>{ manualAmount.value = e.target.value; });
 
   /* TIMELINE 5 MENIT KE BELAKANG */
   function pad(n){ return n.toString().padStart(2,'0'); }
-  function formatHM(d){ return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function formatHM(d){ return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 
   function updateTimeLine(){
-    const now=new Date();
-    let html="";
-
+    const now = new Date();
+    const container = document.getElementById('timeLine');
+    let html = '';
     for(let i=5;i>=0;i--){
-      const t=new Date(now.getTime() - (i * 60000));
-      html += `<span style="margin:0 6px;">${formatHM(t)}</span>`;
-      if(i>0) html += "| ";
+      const t = new Date(now.getTime() - (i * 60000));
+      html += `<span>${formatHM(t)}</span>`;
+      if(i>0) html += '';
     }
-
-    document.getElementById("timeLine").innerHTML = html;
+    container.innerHTML = html;
   }
 
   updateTimeLine();
-  setInterval(updateTimeLine,15000);
+  setInterval(updateTimeLine,1000);
 
 });
 </script>
