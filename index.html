@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>TREDIO Preview (merged & fixed)</title>
+<title>TREDIO Preview (fixed)</title>
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -40,15 +40,13 @@
   .top-controls { display:flex; gap:8px; align-items:center; }
   .icon-btn { background:#222;border:1px solid #222;color:#fff;padding:8px;border-radius:8px;cursor:pointer }
   .select-interval{ min-width:140px }
-  /* order box style */
-  .order-box{ margin-top:10px;padding:10px;border-radius:8px;background:#0b0b0b;color:#ddd }
 </style>
 </head>
 
 <body>
 
 <!-- LOGIN SCREEN -->
-<div id="loginScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Inter">
+<div id="loginScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;color:#fff">
   <h1 style="margin-bottom:20px;font-size:32px;font-weight:800">TREDIO</h1>
   <div style="background:#111217;padding:20px;border-radius:12px;width:320px;box-shadow:0 0 20px rgba(0,0,0,0.5)">
     <input id="loginUser" placeholder="Username" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:none;background:#0b0b0b;color:white" />
@@ -86,31 +84,20 @@
       <div class="small-muted">Harga Sekarang: <span id="txtNow">-</span></div>
       <div class="small-muted">Countdown: <span id="txtCountdown">60</span>s</div>
     </div>
-
-    <!-- Order detail box -->
-    <div id="orderDetail" class="order-box" style="display:none">
-      <div style="font-weight:800;margin-bottom:6px">📝 Detail Taruhan</div>
-      Harga Buka: <span id="orderOpen">-</span><br>
-      Jam Mulai: <span id="orderStart">-</span><br>
-      Jam Selesai: <span id="orderEnd">-</span><br>
-      Arah: <span id="orderDir">-</span><br>
-      Nominal: <span id="orderNominal">-</span>
-    </div>
-
   </div>
 
   <div class="side">
     <div class="card">
 
       <div class="top-controls">
-        <button id="soundToggle" class="icon-btn" title="Suara ON/OFF" disabled>🔇</button>
-        <select id="intervalSelect" class="select-interval" title="Pilih interval (menit)">
-          <option value="1">1 menit</option>
+        <button id="soundToggle" class="icon-btn" title="Suara ON/OFF">🔊</button>
+        <select id="intervalSelect" class="select-interval">
+          <option value="1">2 menit</option>
           <option value="5" selected>5 menit</option>
           <option value="10">10 menit</option>
           <option value="20">20 menit</option>
         </select>
-        <div style="flex:1;text-align:right;color:#9aa0a6;font-size:13px">Durasi taruhan (min 2 menit)</div>
+        <div style="flex:1;text-align:right;color:#9aa0a6;font-size:13px">Durasi taruhan</div>
       </div>
 
       <div style="margin-top:10px" class="small-muted">Pilih Nominal Cepat</div>
@@ -133,8 +120,8 @@
 
       <div class="controls">
         <div class="btn-row">
-          <button id="btnUp" class="btn btn-up" disabled>⬆ PASANG NAIK</button>
-          <button id="btnDown" class="btn btn-down" disabled>⬇ PASANG TURUN</button>
+          <button id="btnUp" class="btn btn-up">⬆ PASANG NAIK</button>
+          <button id="btnDown" class="btn btn-down">⬇ PASANG TURUN</button>
         </div>
 
         <div class="status" id="statusBox">Menunggu transaksi...</div>
@@ -153,57 +140,34 @@
 <script>
 window.addEventListener('DOMContentLoaded', ()=>{
 
-  /* ===========================
-     ELEMENTS & STATE
-     =========================== */
+  /* LOGIN ======================================================= */
+
   const loginScreen = document.getElementById('loginScreen');
   const mainApp = document.getElementById('mainApp');
   const btnLogin = document.getElementById('btnLogin');
   const loginError = document.getElementById('loginError');
 
-  const soundToggle = document.getElementById('soundToggle');
-  const intervalSelect = document.getElementById('intervalSelect');
-  const quickAmount = document.getElementById('quickAmount');
-  const manualAmount = document.getElementById('manualAmount');
-  const btnUp = document.getElementById('btnUp');
-  const btnDown = document.getElementById('btnDown');
+  btnLogin.addEventListener('click', ()=>{
+    const u = document.getElementById('loginUser').value.trim();
+    const p = document.getElementById('loginPass').value.trim();
+    if(u === 'TRADERPRO2025' && p === '120288'){
+      loginScreen.style.display = 'none';
+      mainApp.style.display = 'grid';
+    } else loginError.style.display = 'block';
+  });
 
-  const txtNow = document.getElementById('txtNow');
-  const txtOpen = document.getElementById('txtOpen');
-  const txtClose = document.getElementById('txtClose');
-  const txtCountdown = document.getElementById('txtCountdown');
-  const statusBox = document.getElementById('statusBox');
 
-  const orderDetail = document.getElementById('orderDetail');
-  const orderOpen = document.getElementById('orderOpen');
-  const orderStart = document.getElementById('orderStart');
-  const orderEnd = document.getElementById('orderEnd');
-  const orderDir = document.getElementById('orderDir');
-  const orderNominal = document.getElementById('orderNominal');
+  /* HARGA PER MENIT ======================================================= */
 
-  const timeRangeEl = document.getElementById('timeRange');
-
-  /* ===========================
-     DATA & INITIAL STATE
-     =========================== */
   const hargaPerMenit = [74.996,75.001,74.998,75.005,75.012,75.008,75.004,74.999,75.003,75.008,75.015,75.020,75.025,75.022,75.018,75.014,75.010,75.006,75.009,75.014,75.011,90000,175.000,50000,74.990,74.987,74.982,74.979,74.975,74.970,74.965,74.968,74.972,74.977,74.981,74.985,74.990,74.985,74.980,74.976,74.972,74.978,74.983,74.975,74.970,74.965,74.971,74.977,74.980,74.985,74.992,74.996,75.000,75.005,75.011,75.018,75.023,75.028,75.025,75.021];
 
   let saldo = 140000000;
   const formatIDR = v => 'Rp ' + Number(v).toLocaleString('id-ID');
   document.getElementById('saldoText').textContent = formatIDR(saldo);
 
-  // sound & chart control
-  let audioCtx = null;
-  let soundEnabled = false; // 🔇 default OFF before login
-  let chartInterval = null; // chart loop handle
-  let tradeTimer = null; // trade countdown handle
 
-  // trading state
-  let tradingActive=false, openPrice=null, openIndex=null, closeIndex=null, countdown=0, chosenAmount=0;
+  /* CHART ======================================================= */
 
-  /* ===========================
-     CHART SETUP
-     =========================== */
   const ctx = document.getElementById('chartCanvas').getContext('2d');
 
   const customOverlayPlugin = {
@@ -224,9 +188,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
         const L = Math.min(ox,cx), R = Math.max(ox,cx);
         ctx.fillStyle='rgba(241,196,15,0.12)';
         ctx.fillRect(L,chartArea.top,R-L,chartArea.bottom-chartArea.top);
-      } else if (ox!==null && cx===null){
-        ctx.fillStyle='rgba(241,196,15,0.06)';
-        ctx.fillRect(ox,chartArea.top,chartArea.right-ox,chartArea.bottom-chartArea.top);
       }
 
       ctx.restore();
@@ -293,12 +254,39 @@ window.addEventListener('DOMContentLoaded', ()=>{
     }
   });
 
-  /* ===========================
-     TIME & PRICE HELPERS
-     =========================== */
-  function pad(n){ return n.toString().padStart(2,'0'); }
-  function formatHHMM(date){ return `${pad(date.getHours())}:${pad(date.getMinutes())}`; }
-  function formatHHMMSS(date){ return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`; }
+
+  /* TIME LABEL & RANGE ======================================================= */
+
+  function pushPoint(h){
+    const now = new Date();
+    const hh = now.getHours().toString().padStart(2,'0');
+    const mm = now.getMinutes().toString().padStart(2,'0');
+    const label = `${hh}:${mm}`;
+
+    chart.data.labels.push(label);
+    chart.data.datasets[0].data.push(h);
+
+    if(chart.data.labels.length > 300){
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+
+    chart.update('none');
+  }
+
+  function updateTimeRange(){
+    const now = new Date();
+    const next5 = new Date(now.getTime() + 5*60000);
+    const pad = x => x.toString().padStart(2,'0');
+
+    const t1 = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const t2 = `${pad(next5.getHours())}:${pad(next5.getMinutes())}`;
+
+    document.getElementById('timeRange').textContent = `${t1} — ${t2}`;
+  }
+
+
+  /* PRICE GENERATION ======================================================= */
 
   function getBaseMinute(){
     const m = new Date().getMinutes();
@@ -312,293 +300,151 @@ window.addEventListener('DOMContentLoaded', ()=>{
     return +(base+fl);
   }
 
-  function pushPoint(h){
-    const now = new Date();
-    const label = formatHHMM(now);
 
-    chart.data.labels.push(label);
-    chart.data.datasets[0].data.push(h);
+  /* SOUND ======================================================= */
 
-    if(chart.data.labels.length > 300){
-      chart.data.labels.shift();
-      chart.data.datasets[0].data.shift();
-    }
-
-    chart.update('none');
-  }
-
-  /* ===========================
-     TIME RANGE DISPLAY (5 MENIT)
-     =========================== */
-  function updateTimeRange(){
-    const now = new Date();
-    const next5 = new Date(now.getTime() + 5*60000);
-
-    const t1 = formatHHMM(now);
-    const t2 = formatHHMM(next5);
-    timeRangeEl.textContent = `${t1} — ${t2}`;
-  }
-
-  /* ===========================
-     SOUND (OFF BEFORE LOGIN)
-     =========================== */
-  soundToggle.disabled = true; // disabled before login
-  soundToggle.textContent = '🔇';
-  soundEnabled = false;
-
-  soundToggle.addEventListener('click', ()=>{
-    // only clickable after login (we enable it then)
-    soundEnabled = !soundEnabled;
-    soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
-  });
+  let audioCtx=null, soundEnabled=false;
+  document.getElementById('soundToggle').onclick=()=>{
+    soundEnabled=!soundEnabled;
+    document.getElementById('soundToggle').textContent = soundEnabled?'🔊':'🔇';
+  };
 
   function playTick(){
     if(!soundEnabled) return;
-    try{
-      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.setValueAtTime(1000, audioCtx.currentTime);
-      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.06, audioCtx.currentTime + 0.01);
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start();
-      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.12);
-      o.stop(audioCtx.currentTime + 0.15);
-    }catch(e){
-      // fail silently
-      console.warn('Audio play error', e);
-    }
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type='sine'; o.frequency.value=1000;
+    g.gain.setValueAtTime(0.001,audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.06,audioCtx.currentTime+0.01);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.12);
+    o.stop(audioCtx.currentTime+0.15);
   }
 
-  /* ===========================
-     CHART LOOP — START AFTER LOGIN
-     =========================== */
-  function startChartLoop(){
-    if(chartInterval) return;
-    // update immediately once
-    const h0 = getHargaDetik();
-    txtNow.textContent = h0.toFixed(3);
-    pushPoint(h0);
+
+  /* CHART LOOP (1 DETIK) ======================================================= */
+
+  setInterval(()=>{
+    const h = getHargaDetik();
+    document.getElementById('txtNow').textContent = h.toFixed(3);
+    pushPoint(h);
     updateTimeRange();
+    playTick();
+  },1000);
 
-    chartInterval = setInterval(()=>{
-      const h = getHargaDetik();
-      txtNow.textContent = h.toFixed(3);
-      pushPoint(h);
-      updateTimeRange();
-      playTick();
-    },1000);
-  }
 
-  /* ===========================
-     UTILS: ROUND END TIME (sec -> 00) and MIN DURATION
-     =========================== */
-  function computeEndTime(startDate, minutes){
-    // minimum 2 minutes
-    let mins = Number(minutes) || 0;
-    if(mins < 2) mins = 2;
+  /* TRADING ======================================================= */
 
-    const end = new Date(startDate.getTime() + mins*60000);
-    if(end.getSeconds() !== 0){
-      end.setMinutes(end.getMinutes()+1);
-    }
-    end.setSeconds(0);
-    end.setMilliseconds(0);
-    return end;
-  }
+  let tradingActive=false, openPrice=null, openIndex=null, closeIndex=null, countdown=60, timer=null, chosenAmount=0;
 
-  /* ===========================
-     PICK AMOUNT (manual priority)
-     =========================== */
+  const txtOpen=document.getElementById('txtOpen');
+  const txtClose=document.getElementById('txtClose');
+  const txtCountdown=document.getElementById('txtCountdown');
+  const statusBox=document.getElementById('statusBox');
+  const intervalSelect=document.getElementById('intervalSelect');
+
   function pickAmount(){
-    const manual = Number(manualAmount.value || 0);
-    const quick = Number(quickAmount.value || 0);
-    return manual > 0 ? manual : (quick > 0 ? quick : 0);
+    const q=Number(document.getElementById('quickAmount').value||0);
+    const m=Number(document.getElementById('manualAmount').value||0);
+    return m>0?m:(q>0?q:0);
   }
 
-  // when quickAmount changes, mirror into manualAmount for clarity (but user can still edit manual)
-  quickAmount.addEventListener('change', (e)=>{
-    const v = e.target.value || '';
-    manualAmount.value = v;
-  });
-
-  /* ===========================
-     TRADING LOGIC
-     =========================== */
   function setControlsDisabled(v){
-    btnUp.disabled = v;
-    btnDown.disabled = v;
-    quickAmount.disabled = v;
-    manualAmount.disabled = v;
-    intervalSelect.disabled = v;
-    soundToggle.disabled = !v ? false : soundToggle.disabled; // keep normal
+    document.getElementById('btnUp').disabled=v;
+    document.getElementById('btnDown').disabled=v;
+    document.getElementById('quickAmount').disabled=v;
+    document.getElementById('manualAmount').disabled=v;
+    intervalSelect.disabled=v;
   }
 
   function startTrade(dir){
-    if(tradingActive){
-      alert('Transaksi masih berjalan');
-      return;
-    }
+    if(tradingActive) return alert('Transaksi masih berjalan');
 
-    const amount = pickAmount();
-    if(!amount){
-      alert('Nominal belum dipilih');
-      return;
-    }
-    if(amount > saldo){
-      alert('Saldo tidak cukup');
-      return;
-    }
+    chosenAmount = pickAmount();
+    if(!chosenAmount) return alert('Nominal belum dipilih');
+    if(chosenAmount > saldo) return alert('Saldo tidak cukup');
 
-    // set open
     const last = chart.data.datasets[0].data.slice(-1)[0];
     openPrice = last;
     openIndex = chart.data.labels.length - 1;
 
     chart.options.plugins.customOverlay.openIndex = openIndex;
     chart.options.plugins.customOverlay.closeIndex = null;
+
     chart.update();
 
     txtOpen.textContent = openPrice.toFixed(3);
     txtClose.textContent = '-';
 
-    // show order detail
-    const now = new Date();
-    const chosenMinutes = Math.max(2, Number(intervalSelect.value || 2)); // enforce min 2
-    const end = computeEndTime(now, chosenMinutes);
-
-    orderOpen.textContent = openPrice.toFixed(3);
-    orderStart.textContent = formatHHMMSS(now);
-    orderEnd.textContent = formatHHMMSS(end);
-    orderDir.textContent = dir.toUpperCase();
-    orderNominal.textContent = 'Rp ' + Number(amount).toLocaleString('id-ID');
-    orderDetail.style.display = 'block';
-
-    // lock controls
     setControlsDisabled(true);
 
-    // countdown seconds from now to end
-    const totalSec = Math.max(1, Math.round((end.getTime() - now.getTime())/1000));
-    countdown = totalSec;
+    countdown = (Number(intervalSelect.value)||1)*60;
     txtCountdown.textContent = countdown;
     tradingActive = true;
-    statusBox.classList.remove('result-win','result-lose');
-    statusBox.textContent = 'NETRAL';
 
-    // start per-second countdown
-    tradeTimer = setInterval(()=>{
+    statusBox.textContent = 'NETRAL';
+    statusBox.classList.remove('result-win','result-lose');
+
+    timer = setInterval(()=>{
       countdown--;
       txtCountdown.textContent = countdown;
 
-      // temporary evaluation
       const current = chart.data.datasets[0].data.slice(-1)[0];
-      let state = 'NETRAL';
-      if(dir === 'naik'){
-        if(current > openPrice) state = 'MENANG';
-        else if(current < openPrice) state = 'KALAH';
+      let s='NETRAL';
+
+      if(dir==='naik'){
+        if(current>openPrice) s='MENANG';
+        else if(current<openPrice) s='KALAH';
       } else {
-        if(current < openPrice) state = 'MENANG';
-        else if(current > openPrice) state = 'KALAH';
+        if(current<openPrice) s='MENANG';
+        else if(current>openPrice) s='KALAH';
       }
 
       statusBox.classList.remove('result-win','result-lose');
-      if(state === 'MENANG'){
-        statusBox.classList.add('result-win');
-      } else if(state === 'KALAH'){
-        statusBox.classList.add('result-lose');
-      }
-      statusBox.textContent = state;
+      if(s==='MENANG'){ statusBox.classList.add('result-win'); }
+      else if(s==='KALAH'){ statusBox.classList.add('result-lose'); }
+      statusBox.textContent = s;
 
       if(countdown <= 0){
-        clearInterval(tradeTimer);
-        tradeTimer = null;
+        clearInterval(timer); timer=null;
 
         const final = chart.data.datasets[0].data.slice(-1)[0];
-        const win = (dir === 'naik' && final > openPrice) || (dir === 'turun' && final < openPrice);
+        const win = (dir==='naik' && final>openPrice) || (dir==='turun' && final<openPrice);
 
         if(win){
-          saldo += amount;
-          statusBox.classList.remove('result-lose');
+          saldo += chosenAmount;
           statusBox.classList.add('result-win');
-          statusBox.textContent = `MENANG +${formatIDR(amount)} — ${final.toFixed(3)}`;
-          document.getElementById('lastResult').textContent = 'MENANG';
+          statusBox.textContent = `MENANG +${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
+          document.getElementById('lastResult').textContent='MENANG';
         } else {
-          saldo -= amount;
-          statusBox.classList.remove('result-win');
+          saldo -= chosenAmount;
           statusBox.classList.add('result-lose');
-          statusBox.textContent = `KALAH -${formatIDR(amount)} — ${final.toFixed(3)}`;
-          document.getElementById('lastResult').textContent = 'KALAH';
+          statusBox.textContent = `KALAH -${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
+          document.getElementById('lastResult').textContent='KALAH';
         }
 
         document.getElementById('saldoText').textContent = formatIDR(saldo);
-
         txtClose.textContent = final.toFixed(3);
 
         closeIndex = chart.data.labels.length - 1;
         chart.options.plugins.customOverlay.closeIndex = closeIndex;
         chart.update();
 
-        tradingActive = false;
+        tradingActive=false;
         setControlsDisabled(false);
       }
-    }, 1000);
+
+    },1000);
   }
 
-  btnUp.addEventListener('click', ()=> startTrade('naik'));
-  btnDown.addEventListener('click', ()=> startTrade('turun'));
+  document.getElementById('btnUp').onclick = ()=> startTrade('naik');
+  document.getElementById('btnDown').onclick = ()=> startTrade('turun');
 
-  /* ===========================
-     LOGIN HANDLER — enable features after login
-     =========================== */
-  btnLogin.addEventListener('click', ()=>{
-    const u = document.getElementById('loginUser').value.trim();
-    const p = document.getElementById('loginPass').value.trim();
-    if(u === 'TRADERPRO2025' && p === '120288'){
-      loginScreen.style.display = 'none';
-      mainApp.style.display = 'grid';
-
-      // enable sound control and set default ON
-      soundEnabled = true;
-      soundToggle.disabled = false;
-      soundToggle.textContent = '🔊';
-
-      // enable buttons & inputs
-      btnUp.disabled = false;
-      btnDown.disabled = false;
-      quickAmount.disabled = false;
-      manualAmount.disabled = false;
-      intervalSelect.disabled = false;
-
-      // start chart loop (only after login)
-      startChartLoop();
-
-    } else {
-      loginError.style.display = 'block';
-    }
+  document.getElementById('quickAmount').addEventListener('change', e =>{
+    document.getElementById('manualAmount').value = e.target.value;
   });
-
-  /* ===========================
-     Mirror quick -> manual on change (already set)
-     =========================== */
-  // (already registered earlier but ensure it's present)
-  quickAmount.addEventListener('change', (e)=>{
-    manualAmount.value = e.target.value;
-  });
-
-  /* ===========================
-     Initialization: keep everything disabled before login
-     =========================== */
-  // ensure controls locked before login:
-  btnUp.disabled = true;
-  btnDown.disabled = true;
-  quickAmount.disabled = true;
-  manualAmount.disabled = true;
-  intervalSelect.disabled = true;
-
-  // no chart loop running until login (chartInterval null)
-  // show initial empty chart (no data) and timeRange placeholder
-  timeRangeEl.textContent = '-';
 
 });
 </script>
