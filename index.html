@@ -1,459 +1,265 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>TREDIO — Mobile responsive + Binomo-like + Admin Login</title>
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Binomo Style</title>
+
 <style>
-  :root{
-    --bg:#0b0b0c; --panel:#111217; --muted:#9aa0a6;
-    --green:#2ecc71; --red:#e74c3c; --accent:#f1c40f;
-    --glass: rgba(255,255,255,0.03);
-  }
-  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif; -webkit-font-smoothing:antialiased;}
-  /* app layout */
-  .app{ max-width:1100px;margin:12px auto;padding:12px; display:grid; grid-template-columns:1fr 360px; gap:12px; align-items:start;}
-  @media (max-width:900px){
-    .app{ grid-template-columns:1fr; padding:10px; gap:10px; }
-  }
+/* ===================== GLOBAL ===================== */
+body{
+  margin:0;
+  background:#0d1117;
+  color:white;
+  font-family:Arial, sans-serif;
+}
+.hide{display:none}
 
-  .panel{ background:linear-gradient(180deg,#070708 0%, var(--panel) 100%); border-radius:12px; padding:12px; box-shadow:0 8px 30px rgba(0,0,0,0.6); }
-  .header{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; }
-  .header .left{ display:flex; gap:12px; align-items:center; }
-  .brand{ font-weight:800; font-size:18px; letter-spacing:1px; }
-  .small-muted{ color:#9aa0a6; font-size:13px; }
+/* ===================== LOGIN ===================== */
+#loginScreen{
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  background:#000;
+}
+#loginBox{
+  width:90%;
+  max-width:330px;
+  background:#141a24;
+  padding:20px;
+  border-radius:12px;
+  box-shadow:0 0 10px #000;
+}
+input{
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  border-radius:8px;
+  border:none;
+  background:#0d1117;
+  color:white;
+  font-size:15px;
+}
+button{
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  background:#ffcc00;
+  color:black;
+  border:none;
+  font-weight:bold;
+  font-size:16px;
+  border-radius:8px;
+}
 
-  .saldo { font-weight:800; color:var(--green); font-size:16px; }
-  .chart-wrap{ position:relative; background:#000; border-radius:10px; padding:6px; overflow:hidden; }
-  canvas{ width:100% !important; height:320px !important; display:block; border-radius:8px; }
+/* ===================== APP MAIN ===================== */
+#mainApp{
+  display:none;
+  height:100vh;
+  grid-template-rows:auto 1fr auto;
+}
 
-  /* timeline binomo-like overlay */
-  #timelineOverlay{
-    position:absolute; left:6px; right:6px; bottom:6px; height:48px;
-    pointer-events:none; display:flex; align-items:flex-end; gap:0; z-index:6;
-    font-size:11px; color:#cfcfcf; font-weight:600;
-  }
-  .time-slot{ flex:1; text-align:center; position:relative; padding-bottom:4px; }
-  .time-slot .vline{
-    position:absolute; left:50%; transform:translateX(-50%); bottom:18px;
-    width:1px; height:calc(100% + 220px); background:rgba(255,255,255,0.06);
-  }
-  .time-slot.now{ color:#fff; font-weight:900; }
+/* ===================== SOUND BUTTON ===================== */
+#soundBtn{
+  position:absolute;
+  right:10px;
+  top:10px;
+  background:#222;
+  padding:8px 12px;
+  border-radius:10px;
+  font-size:14px;
+  cursor:pointer;
+}
 
-  /* controls & buttons */
-  .side{ display:flex; flex-direction:column; gap:12px; }
-  .card{ background:#0f1113; padding:12px; border-radius:10px; }
-  .top-controls{ display:flex; gap:8px; align-items:center; }
-  .select-interval{ min-width:120px; padding:8px; border-radius:8px; background:#0b0b0b; border:1px solid #222; color:#fff }
+/* ===================== CHART WRAPPER ===================== */
+#chartWrap{
+  position:relative;
+  height:330px;
+  background:#080c12;
+  border-top:1px solid #222;
+  border-bottom:1px solid #222;
+}
 
-  .btn{ flex:1; padding:12px; border-radius:10px; border:none; font-weight:800; cursor:pointer; color:#fff; font-size:14px; }
-  .btn-up{ background: linear-gradient(135deg,var(--green),#27ae60); box-shadow:0 6px 18px rgba(46,204,113,0.12); }
-  .btn-down{ background: linear-gradient(135deg,var(--red),#c0392b); box-shadow:0 6px 18px rgba(231,76,60,0.12); }
+/* ===================== TIMELINE ===================== */
+#timelineOverlay{
+  position:absolute;
+  left:4px;
+  right:4px;
+  bottom:2px;
+  height:26px;
+  pointer-events:none;
+  display:flex;
+  align-items:flex-end;
+  font-size:9px;
+  z-index:6;
+}
 
-  .btn-row{ display:flex; gap:8px; margin-top:10px; }
+.time-slot{
+  flex:1;
+  text-align:center;
+  position:relative;
+}
 
-  .status{ margin-top:10px; padding:10px; border-radius:10px; background:rgba(255,255,255,0.02); text-align:center; font-weight:800; }
-  .result-win{ color:var(--green); }
-  .result-lose{ color:var(--red); }
+.time-slot.now{
+  color:#ffcc00;
+  font-weight:bold;
+}
 
-  /* mobile adjustments */
-  @media (max-width:420px){
-    canvas{ height:260px !important; }
-    .btn{ padding:14px; font-size:16px; border-radius:12px; }
-    #timelineOverlay{ height:44px; font-size:10px; }
-  }
+.time-slot .vline{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:14px;
+  width:1px;
+  height:140px;
+  background:rgba(255,255,255,0.05);
+}
 
-  /* login modal / admin setup */
-  .modal-bg{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:40; }
-  .modal{ width:360px; max-width:92%; background:linear-gradient(180deg,#0b0b0c,#111216); border-radius:12px; padding:18px; box-shadow:0 20px 60px rgba(0,0,0,0.6); }
-  .modal h3{ margin:0 0 12px 0; font-size:20px; }
-  .input{ width:100%; padding:10px; border-radius:8px; border:1px solid #222; background:#0b0b0b; color:#fff; margin-bottom:10px; box-sizing:border-box; }
-  .muted{ color:#9aa0a6; font-size:13px; margin-top:6px; }
+/* ===================== PRICE PANEL ===================== */
+#priceInfo{
+  background:#111;
+  padding:10px;
+  text-align:center;
+  font-size:18px;
+  border-top:1px solid #222;
+}
 
-  /* small helpers */
-  .flex-row{ display:flex; gap:8px; align-items:center; }
-  .text-xs{ font-size:12px; color:#9aa0a6; }
 </style>
 </head>
 <body>
 
-<!-- ADMIN SETUP / LOGIN modal will show on start if needed -->
-<div id="setupModal" class="modal-bg" style="display:none;">
-  <div class="modal">
-    <h3 id="setupTitle">Setup Admin</h3>
+<!-- ============== LOGIN SCREEN ============== -->
+<div id="loginScreen">
+  <div id="loginBox">
+    <h2 style="text-align:center;margin-bottom:10px;">Login</h2>
 
-    <div id="setupDesc" class="muted">Buat akun admin untuk mengakses aplikasi ini.</div>
+    <input type="text" id="loginUser" placeholder="Username">
+    <input type="password" id="loginPass" placeholder="Password">
 
-    <input id="adminUser" class="input" placeholder="Username admin" />
-    <input id="adminPass" class="input" placeholder="Password admin" type="password" />
-    <div style="display:flex;gap:8px;">
-      <button id="btnCreateAdmin" class="btn btn-up" style="flex:1">Buat Admin</button>
-      <button id="btnSkipSetup" class="btn btn-down" style="flex:1">Batal</button>
+    <button id="btnLogin">LOGIN</button>
+    <div id="loginError" style="color:#ff4444;text-align:center;display:none;margin-top:10px;">
+      Username atau password salah!
     </div>
-    <div id="setupError" class="text-xs" style="color:#ff6b6b;margin-top:8px;display:none;"></div>
   </div>
 </div>
 
-<!-- LOGIN SCREEN (if admin exists) -->
-<div id="loginScreen" class="modal-bg" style="display:none;">
-  <div class="modal">
-    <h3>Login Admin</h3>
-    <input id="loginUser" class="input" placeholder="Username" />
-    <input id="loginPass" class="input" placeholder="Password" type="password" />
-    <div style="display:flex;gap:8px;">
-      <button id="btnLogin" class="btn btn-up" style="flex:1">LOGIN</button>
-      <button id="btnAuto" class="btn btn-down" style="flex:1">Auto Login</button>
-    </div>
-    <div id="loginError" class="text-xs" style="color:#ff6b6b;margin-top:8px;display:none;">Username / Password salah</div>
+<!-- ============== MAIN APP ============== -->
+<div id="mainApp">
+
+  <div id="chartWrap">
+    <div id="soundBtn">🔇</div>
+
+    <!-- Timeline -->
+    <div id="timelineOverlay"></div>
   </div>
+
+  <div id="priceInfo">Harga: <span id="priceNow">0.00000</span></div>
+
 </div>
 
-<!-- MAIN APP -->
-<div class="app" id="mainApp" style="display:none;">
-
-  <div class="panel">
-
-    <div class="header">
-      <div class="left">
-        <div class="brand">TREDIO</div>
-        <div class="small-muted">Harga Batubara Premium</div>
-      </div>
-
-      <div style="text-align:right">
-        <div class="small-muted">Saldo Real</div>
-        <div class="saldo" id="saldoText">Rp 140.000.000</div>
-      </div>
-    </div>
-
-    <div class="chart-wrap" id="chartWrap">
-      <canvas id="chartCanvas"></canvas>
-
-      <!-- timeline overlay (Binomo-like) -->
-      <div id="timelineOverlay" aria-hidden="true"></div>
-    </div>
-
-    <div style="display:flex;justify-content:space-between;margin-top:10px;">
-      <div class="small-muted">Harga Buka: <span id="txtOpen">-</span></div>
-      <div class="small-muted">Harga Sekarang: <span id="txtNow">-</span></div>
-      <div class="small-muted">Countdown: <span id="txtCountdown">Durasi taruhan</span>s</div>
-    </div>
-
-  </div>
-
-  <div class="side">
-    <div class="card">
-      <div class="top-controls">
-        <button id="soundToggle" class="icon-btn">🔊</button>
-        <select id="intervalSelect" class="select-interval">
-          <option value="1">1 menit</option>
-          <option value="5" selected>5 menit</option>
-          <option value="10">10 menit</option>
-          <option value="20">20 menit</option>
-        </select>
-        <div style="flex:1;text-align:right;color:#9aa0a6;font-size:13px">Durasi taruhan</div>
-      </div>
-
-      <div style="margin-top:12px" class="small-muted">Pilih Nominal Cepat</div>
-      <select id="quickAmount" style="width:100%;margin-top:8px;padding:10px;border-radius:8px;background:#0b0b0b;border:1px solid #222;color:#fff;">
-        <option value="">Pilih</option>
-        <option value="140000">140.000</option>
-        <option value="240000">240.000</option>
-        <option value="700000">700.000</option>
-        <option value="1400000">1.400.000</option>
-        <option value="14000000">14.000.000</option>
-      </select>
-
-      <input id="manualAmount" type="number" placeholder="Masukkan nominal (Rp)" class="input" style="margin-top:8px;"/>
-
-      <div class="btn-row">
-        <button id="btnUp" class="btn btn-up">⬆ PASANG NAIK</button>
-        <button id="btnDown" class="btn btn-down">⬇ PASANG TURUN</button>
-      </div>
-
-      <div class="status" id="statusBox">Menunggu transaksi...</div>
-
-      <div class="small-muted" style="margin-top:10px">
-        <div>Hasil terakhir: <span id="lastResult">-</span></div>
-        <div>Harga Tutup (last): <span id="txtClose">-</span></div>
-      </div>
-
-      <div style="margin-top:12px" class="small-muted">Hubungi: <a href="https://wa.me/message/HWGD7LUY5VQIF1" target="_blank" style="color:#ff6b6b;text-decoration:none;font-weight:800">Deposit / Withdraw</a></div>
-    </div>
-  </div>
-
-</div>
 
 <script>
-/* ---------------------------
-   Helper: SHA-256 hashing (Web Crypto)
-   --------------------------- */
-async function sha256Hex(str){
-  const enc = new TextEncoder();
-  const data = enc.encode(str);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  const bytes = new Uint8Array(hash);
-  return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+/* ==========================================================
+   SUARA (default OFF sebelum login)
+========================================================== */
+let soundEnabled = false;
+
+const upSound = new Audio("https://www.myinstants.com/media/sounds/notification-sound-7062.mp3");
+const downSound = new Audio("https://www.myinstants.com/media/sounds/negative_beeps-6008.mp3");
+
+function playUp(){
+  if(soundEnabled) upSound.play();
+}
+function playDown(){
+  if(soundEnabled) downSound.play();
 }
 
-/* ---------------------------
-   Admin setup & login (localStorage)
-   - key: 'tredio_admin' stores JSON {user, passHash}
-   - first run: show setup modal if admin not found
-   --------------------------- */
-const SETUP_KEY = 'tredio_admin';
-
-const setupModal = document.getElementById('setupModal');
-const loginModal = document.getElementById('loginScreen');
-const mainApp = document.getElementById('mainApp');
-
-async function showInitialFlow(){
-  const raw = localStorage.getItem(SETUP_KEY);
-  if(!raw){
-    // show setup
-    setupModal.style.display = 'flex';
-  } else {
-    // require login
-    loginModal.style.display = 'flex';
-  }
-}
-
-// create admin
-document.getElementById('btnCreateAdmin').addEventListener('click', async ()=>{
-  const u = document.getElementById('adminUser').value.trim();
-  const p = document.getElementById('adminPass').value;
-  const err = document.getElementById('setupError');
-  err.style.display='none';
-  if(!u || !p){ err.textContent = 'Username & password wajib diisi'; err.style.display='block'; return; }
-
-  const h = await sha256Hex(p);
-  localStorage.setItem(SETUP_KEY, JSON.stringify({user:u, pass:h}));
-  setupModal.style.display = 'none';
-  // open login immediately
-  loginModal.style.display = 'flex';
-});
-
-// skip setup (not recommended) — allow guest access (no admin)
-document.getElementById('btnSkipSetup').addEventListener('click', ()=>{
-  setupModal.style.display='none';
-  // open app without admin (for quick dev) — show app directly
-  mainApp.style.display='grid';
-});
-
-// login flow
-document.getElementById('btnLogin').addEventListener('click', async ()=>{
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
-  const err = document.getElementById('loginError');
-  err.style.display='none';
-  const raw = localStorage.getItem(SETUP_KEY);
-  if(!raw){ err.textContent = 'Admin belum disetup'; err.style.display='block'; return; }
-  const admin = JSON.parse(raw);
-  const h = await sha256Hex(p);
-  if(u === admin.user && h === admin.pass){
-    // success
-    loginModal.style.display='none';
-    mainApp.style.display='grid';
-  } else {
-    err.textContent = 'Username / Password salah';
-    err.style.display='block';
-  }
-});
-
-// auto login button (for dev/testing)
-document.getElementById('btnAuto').addEventListener('click', ()=>{
-  const raw = localStorage.getItem(SETUP_KEY);
-  if(raw){
-    // open app (dev convenience) - still recommended to login properly
-    loginModal.style.display='none';
-    mainApp.style.display='grid';
-  } else {
-    // if no admin, open setup
-    loginModal.style.display='none';
-    setupModal.style.display='flex';
-  }
-});
-
-/* ---------------------------
-   Start initial flow
-   --------------------------- */
-showInitialFlow();
-
-/* ---------------------------
-   Chart & data
-   --------------------------- */
-const hargaPerMenit = [
-  74.996,75.001,74.998,75.005,75.012,75.008,75.004,74.999,75.003,
-  75.008,75.015,75.020,75.025,75.022,75.018,75.014,75.010,75.006,
-  75.009,75.014,75.011,74.990,74.987,74.982,74.979,74.975,74.970
-];
-
-let saldo = 140000000;
-const formatIDR = v => "Rp " + Number(v).toLocaleString("id-ID");
-document.getElementById('saldoText').textContent = formatIDR(saldo);
-
-/* Chart.js setup */
-const ctx = document.getElementById('chartCanvas').getContext('2d');
-
-const customOverlayPlugin = {
-  id: 'customOverlay',
-  afterDraw(chart){
-    // optional plugin — reserved for overlays later
-  }
+document.getElementById("soundBtn").onclick = ()=>{
+  soundEnabled = !soundEnabled;
+  document.getElementById("soundBtn").innerText = soundEnabled ? "🔊" : "🔇";
 };
-Chart.register(customOverlayPlugin);
 
-const chart = new Chart(ctx,{
-  type:'line',
-  data:{ labels:[], datasets:[{ label:'Harga', data:[], borderColor:'#2ecc71', backgroundColor:'rgba(46,204,113,0.06)', tension:0.22, borderWidth:2, pointRadius:0 }]},
-  options:{ animation:false, responsive:true, maintainAspectRatio:false,
-    plugins:{ legend:{display:false} },
-    scales:{ x:{ ticks:{display:false}, grid:{color:'#111'} }, y:{ ticks:{color:'#9aa0a6'}, grid:{color:'#111'} } }
+
+/* ==========================================================
+   LOGIN SYSTEM (user + admin)
+========================================================== */
+btnLogin.addEventListener("click", ()=>{
+  const u = loginUser.value.trim();
+  const p = loginPass.value.trim();
+
+  const userOK = (u === "TRADERPRO2025" && p === "120288");
+  const adminOK = (u === "ADMIN" && p === "SUPERADMIN2025");
+
+  if(userOK || adminOK){
+      loginScreen.style.display = "none";
+      mainApp.style.display = "grid";
+
+      // Aktifkan suara setelah login
+      soundEnabled = true;
+      soundBtn.innerText = "🔊";
+
+  } else {
+      loginError.style.display = "block";
   }
 });
 
-/* price generator */
-function getBaseMinute(){
-  const m = new Date().getMinutes();
-  return hargaPerMenit[m % hargaPerMenit.length];
-}
-function getHargaDetik(){
-  return +(getBaseMinute() + (Math.random()-0.5)*0.03);
-}
 
-let labelCounter = 0;
-setInterval(()=>{
-  const h = getHargaDetik();
-  document.getElementById('txtNow').textContent = h.toFixed(3);
 
-  chart.data.labels.push(labelCounter++);
-  chart.data.datasets[0].data.push(h);
-
-  if(chart.data.labels.length > 120){
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-  }
-  chart.update('none');
-}, 1000);
-
-/* ---------------------------
-   Trading logic (kept simple)
-   --------------------------- */
-let tradingActive = false, openPrice = null, countdown = 60, timer = null, chosenAmount = 0;
-
-function pickAmount(){
-  const q = Number(document.getElementById('quickAmount').value || 0);
-  const m = Number(document.getElementById('manualAmount').value || 0);
-  return m>0 ? m : (q>0 ? q : 0);
-}
-
-function setDisabled(v){
-  document.getElementById('btnUp').disabled = v;
-  document.getElementById('btnDown').disabled = v;
-  document.getElementById('quickAmount').disabled = v;
-  document.getElementById('manualAmount').disabled = v;
-  document.getElementById('intervalSelect').disabled = v;
-}
-
-function startTrade(dir){
-  if(tradingActive){ alert('Transaksi masih berjalan'); return; }
-  chosenAmount = pickAmount();
-  if(!chosenAmount){ alert('Nominal belum dipilih'); return; }
-  if(chosenAmount > saldo){ alert('Saldo tidak cukup'); return; }
-
-  openPrice = chart.data.datasets[0].data.slice(-1)[0];
-  document.getElementById('txtOpen').textContent = openPrice.toFixed(3);
-
-  countdown = Number(document.getElementById('intervalSelect').value) * 60;
-  document.getElementById('txtCountdown').textContent = countdown;
-
-  tradingActive = true;
-  setDisabled(true);
-  document.getElementById('statusBox').textContent = 'NETRAL';
-
-  timer = setInterval(()=>{
-    countdown--;
-    document.getElementById('txtCountdown').textContent = countdown;
-
-    const cur = chart.data.datasets[0].data.slice(-1)[0];
-    let state = 'NETRAL';
-    if(dir === 'naik') state = cur > openPrice ? 'MENANG' : cur < openPrice ? 'KALAH' : 'NETRAL';
-    else state = cur < openPrice ? 'MENANG' : cur > openPrice ? 'KALAH' : 'NETRAL';
-
-    const statusBox = document.getElementById('statusBox');
-    statusBox.classList.remove('result-win','result-lose');
-    if(state === 'MENANG'){ statusBox.classList.add('result-win'); statusBox.textContent = 'MENANG'; }
-    else if(state === 'KALAH'){ statusBox.classList.add('result-lose'); statusBox.textContent = 'KALAH'; }
-    else statusBox.textContent = 'NETRAL';
-
-    if(countdown <= 0){
-      clearInterval(timer);
-      timer = null;
-      const final = chart.data.datasets[0].data.slice(-1)[0];
-      const win = (dir === 'naik' && final > openPrice) || (dir === 'turun' && final < openPrice);
-
-      if(win){
-        saldo += chosenAmount;
-        document.getElementById('lastResult').textContent = 'MENANG';
-        statusBox.textContent = `MENANG +${formatIDR(chosenAmount)}`;
-        statusBox.classList.add('result-win');
-      } else {
-        saldo -= chosenAmount;
-        document.getElementById('lastResult').textContent = 'KALAH';
-        statusBox.textContent = `KALAH -${formatIDR(chosenAmount)}`;
-        statusBox.classList.add('result-lose');
-      }
-
-      document.getElementById('saldoText').textContent = formatIDR(saldo);
-      document.getElementById('txtClose').textContent = final.toFixed(3);
-
-      tradingActive = false;
-      setDisabled(false);
-    }
-  }, 1000);
-}
-
-document.getElementById('btnUp').addEventListener('click', ()=> startTrade('naik'));
-document.getElementById('btnDown').addEventListener('click', ()=> startTrade('turun'));
-document.getElementById('quickAmount').addEventListener('change', e => document.getElementById('manualAmount').value = e.target.value);
-
-/* ---------------------------
-   Timeline like Binomo (10 minutes back) with vertical lines
-   - Points = 20 (30s interval) => ~10 minutes
-   - Rightmost is 'now'
-   --------------------------- */
+/* ==========================================================
+   TIMELINE BINOMO — Responsive 5–10 menit
+========================================================== */
 function pad(n){ return n.toString().padStart(2,'0'); }
-function fmtTime(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+function fmt(t){ return `${pad(t.getHours())}:${pad(t.getMinutes())}`; }
 
-function updateTimelineBinomo(){
-  const overlay = document.getElementById('timelineOverlay');
-  overlay.innerHTML = ''; // rebuild
+function updateTimeline(){
+  const box = document.getElementById("timelineOverlay");
+  const H = document.getElementById("chartWrap").offsetHeight;
+
+  let POINTS = H < 260 ? 10 : 20; // 5–10 menit
+  const SLOT = 30 * 1000;
+
   const now = new Date();
-  const POINTS = 20;
-  const INTERVAL_MS = 30 * 1000; // 30 seconds
+  const start = new Date(now.getTime() - POINTS * SLOT);
 
-  const start = new Date(now.getTime() - POINTS * INTERVAL_MS);
+  box.innerHTML = "";
 
   for(let i=0; i<=POINTS; i++){
-    const t = new Date(start.getTime() + i * INTERVAL_MS);
-    const div = document.createElement('div');
-    div.className = 'time-slot' + (i === POINTS ? ' now' : '');
-    div.style.flex = '1';
-    div.innerHTML = `<div style="position:relative;z-index:2">${fmtTime(t)}</div><div class="vline" aria-hidden="true"></div>`;
-    overlay.appendChild(div);
+    const t = new Date(start.getTime() + i * SLOT);
+
+    const div = document.createElement("div");
+    div.className = "time-slot" + (i === POINTS ? " now" : "");
+    div.innerHTML = `
+      <div style="position:relative;z-index:2">${fmt(t)}</div>
+      <div class="vline"></div>
+    `;
+    box.appendChild(div);
   }
 }
-updateTimelineBinomo();
-setInterval(updateTimelineBinomo, 1000);
 
-/* optional: sound toggle */
-let soundEnabled = true;
-document.getElementById('soundToggle').addEventListener('click', ()=>{
-  soundEnabled = !soundEnabled;
-  document.getElementById('soundToggle').textContent = soundEnabled ? '🔊' : '🔇';
-});
+updateTimeline();
+setInterval(updateTimeline, 1000);
 
+
+
+/* ==========================================================
+   HARGA SIMULASI (naik turun random)
+========================================================== */
+let price = 1.20000;
+
+setInterval(()=>{
+  let old = price;
+  price += (Math.random() - 0.5) * 0.003;
+
+  price = parseFloat(price.toFixed(5));
+  priceNow.innerText = price.toFixed(5);
+
+  if(price > old) playUp();
+  else playDown();
+
+}, 900);
 </script>
+
 </body>
 </html>
