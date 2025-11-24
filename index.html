@@ -18,7 +18,7 @@
   .chart-wrap{ position:relative; background:#000;border-radius:10px;padding:8px; }
   canvas{ width:100% !important; height:360px !important; display:block; border-radius:8px; }
 
-  /* --- CSS UNTUK WAKTU SCROLLABLE --- */
+  /* --- CSS BARU UNTUK WAKTU SCROLLABLE --- */
   .time-axis-scroll-wrap {
     overflow-x: scroll; /* Aktifkan scroll horizontal */
     height: 24px;
@@ -36,14 +36,16 @@
     white-space: nowrap; 
     height: 100%;
     align-items: center;
+    /* Lebar waktu harus lebih besar dari lebar wrap agar bisa di-scroll */
     min-width: 100%; 
   }
   .time-label {
-    padding: 0 5px; /* Kurangi padding agar HH:MM:SS muat */
+    padding: 0 10px; 
     font-size: 11px;
     color: var(--muted);
     text-align: center;
-    min-width: 70px; /* Lebar simulasi yang cukup untuk HH:MM:SS */
+    /* Lebar simulasi, disesuaikan agar 5 menit (300 detik) terlihat panjang */
+    min-width: 60px; 
     line-height: 24px;
     border-right: 1px dashed #222;
   }
@@ -51,7 +53,7 @@
     color: var(--accent);
     font-weight: bold;
   }
-  /* --- AKHIR CSS WAKTU SCROLLABLE --- */
+  /* --- AKHIR CSS BARU --- */
 
   .overlay-line{ position:absolute; top:8px; bottom:8px; width:2px; pointer-events:none; transform:translateX(-50%); z-index:5; }
   .overlay-open{ background:var(--accent); display:none; left:0; opacity:.95; border-radius:2px;}
@@ -104,7 +106,7 @@
 
     <div class="chart-wrap" id="chartWrap">
       <canvas id="chartCanvas"></canvas>
-    </div>
+                </div>
 
     <div class="time-axis-scroll-wrap" id="timeAxisScrollWrap">
       <div class="time-axis" id="timeAxis">
@@ -209,6 +211,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
       function getX(idx){
         if(idx==null) return null;
         try{
+          // Dapatkan posisi X berdasarkan indeks data (0, 1, 2, ...)
           return scales.x.getPixelForValue(idx); 
         }catch(e){return null;}
       }
@@ -218,6 +221,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
       // shaded area
       ctx.save();
+      // Menggunakan index terakhir sebagai X saat ini
       const currentX = getX(total - 1); 
 
       if(oX!==null && cX!==null){
@@ -226,6 +230,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
         ctx.fillStyle = 'rgba(241,196,15,0.12)';
         ctx.fillRect(L, chartArea.top, R-L, chartArea.bottom-chartArea.top);
       } else if (oX!==null && cX===null){
+        // if close not set yet, shade from open to current position lightly
         const L = Math.min(oX, currentX);
         const R = Math.max(oX, currentX);
         ctx.fillStyle = 'rgba(241,196,15,0.06)';
@@ -259,6 +264,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
       plugins:{legend:{display:false},customOverlay:{openIndex:null,closeIndex:null}},
       scales:{
             x:{
+              // Menggunakan 'linear' agar label dapat diatur berdasarkan indeks (0, 1, 2...)
               type: 'linear', 
               ticks:{display:false}, 
               grid:{color:'#222'}
@@ -270,6 +276,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   function getBaseMinute(){
     const m = new Date().getMinutes();
+    // Menggunakan m % hargaPerMenit.length untuk menghindari indeks out of bounds
     const idx = m % hargaPerMenit.length; 
     return hargaPerMenit[idx];
   }
@@ -289,7 +296,9 @@ window.addEventListener('DOMContentLoaded', ()=>{
     soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
   });
 
+  // define playTick correctly (single function)
   function playTick(){
+    // don't play sound before login screen is hidden
     if(document.getElementById('loginScreen') && document.getElementById('loginScreen').style.display !== 'none') return;
     if(!soundEnabled) return;
     try {
@@ -310,45 +319,37 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // Fungsi untuk memformat timestamp menjadi HH:MM:SS
   function formatTime(timestamp) {
     const date = new Date(timestamp);
-    // Tambahkan opsi 'second: '2-digit'' untuk menampilkan detik
     return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   }
 
   // Fungsi untuk mengupdate tampilan waktu scrollable
   function updateTimeAxis() {
-    const timestamps = chart.data.datasets[0].timestamps || [];
-    if (timestamps.length === 0) return;
+    const dataLabels = chart.data.labels;
+    if (dataLabels.length === 0) return;
 
     let html = '';
-    
-    // Tampilkan label setiap 30 detik (interval menit dan setengah menit)
+    // Tampilkan label setiap 30 detik (setengah menit)
     const intervalSeconds = 30; 
-    const totalPoints = timestamps.length;
     
-    // Asumsi 300 data points = 5 menit. Jika lebar 100% adalah L, maka 1 point = L/300.
-    // Lebar 30 detik (30 points) = 30 * L/300 = L/10. 
-    // Kita buat lebar scrollable 1.5x lebih besar dari container untuk memfasilitasi scroll.
-    const scrollableWidthFactor = 1.5;
-    const timeAxisContainerWidth = timeAxisScrollWrap.clientWidth * scrollableWidthFactor;
-    const widthPerPoint = timeAxisContainerWidth / 300; // Total 300 points (5 menit)
-    
-    // Lebar per label yang ditampilkan (per 30 detik)
-    const labelWidthPx = widthPerPoint * intervalSeconds; 
+    // Total label yang ada di chart
+    const totalPoints = dataLabels.length;
 
-    timestamps.forEach((timestamp, index) => {
-        const timeStr = formatTime(timestamp); 
-        
-        // Hanya tampilkan label jika detik adalah 00 atau 30, ATAU jika ini adalah titik terakhir.
-        // Kita menggunakan timestamp untuk logika waktu, bukan indeks.
-        const date = new Date(timestamp);
-        const seconds = date.getSeconds();
-        
-        // Tampilkan jika detiknya 00 (menit baru) atau 30 (setengah menit)
-        if (seconds === 0 || seconds === 30 || index === totalPoints - 1) { 
+    // Tentukan lebar minimum per label agar total lebar waktu cukup panjang untuk di-scroll
+    // Total lebar chart adalah 100%. Kita membagi 300 data (5 menit) ke lebar tertentu.
+    const pointWidthPx = (timeAxisScrollWrap.clientWidth / 60) * 1.5; // Estimasi
+
+    dataLabels.forEach((timestamp, index) => {
+        // Hanya tampilkan label pada kelipatan 30 detik (atau jika itu titik terakhir)
+        if (index % intervalSeconds === 0 || index === totalPoints - 1) { 
+            const timeStr = formatTime(timestamp); 
+            // Ambil HH:MM
+            
             const timeMarkClass = (index === totalPoints - 1) ? ' current-time-mark' : '';
             
-            // Format HH:MM:SS
-            html += `<div class="time-label${timeMarkClass}" style="min-width: ${labelWidthPx}px">${timeStr}</div>`;
+            // Set lebar per label agar sesuai dengan interval, dibagi 2 karena label per 30 detik
+            const widthStyle = `min-width: ${pointWidthPx * intervalSeconds / 2}px`;
+
+            html += `<div class="time-label${timeMarkClass}" style="${widthStyle}">${timeStr.substring(0, 5)}</div>`;
         }
     });
     
@@ -358,13 +359,16 @@ window.addEventListener('DOMContentLoaded', ()=>{
     timeAxisScrollWrap.scrollLeft = timeAxis.scrollWidth;
   }
 
-
+  // let labelCounter = 0; // TIDAK DIPAKAI LAGI
   function pushPoint(h){
     const now = Date.now();
     
-    chart.data.labels.push(chart.data.labels.length); 
+    // Tambahkan indeks (counter) sebagai label, bukan timestamp. 
+    // Data chart tetap berdasar counter untuk penempatan yang seragam.
+    chart.data.labels.push(chart.data.labels.length); // Gunakan index sebagai label chart.js
     chart.data.datasets[0].data.push(h);
     
+    // Simpan timestamp di data set untuk keperluan time axis
     if(!chart.data.datasets[0].timestamps) chart.data.datasets[0].timestamps = [];
     chart.data.datasets[0].timestamps.push(now);
 
@@ -384,7 +388,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
     chart.update('none');
     
-    // Update tampilan waktu
+    // Update tampilan waktu (lakukan setiap detik atau lebih jarang untuk efisiensi)
     updateTimeAxis();
   }
 
@@ -492,12 +496,13 @@ window.addEventListener('DOMContentLoaded', ()=>{
         const win = (dir === 'naik' && final > openPrice) || (dir === 'turun' && final < openPrice);
 
         if(win){
-          saldo += (chosenAmount * 2); 
+          saldo += (chosenAmount * 2); // Modal kembali + profit (asumsi profit 100%)
           statusBox.classList.remove('result-lose');
           statusBox.classList.add('result-win');
           statusBox.textContent = `MENANG +${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
           document.getElementById('lastResult').textContent = 'MENANG';
         } else {
+          // Saldo sudah dipotong di awal, tidak perlu dipotong lagi
           statusBox.classList.remove('result-win');
           statusBox.classList.add('result-lose');
           statusBox.textContent = `KALAH -${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
