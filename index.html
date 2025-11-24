@@ -357,30 +357,50 @@ window.addEventListener('DOMContentLoaded', ()=>{
     manualAmount.value=e.target.value;
   };
 
-  /* ================================
-     TIMELINE WAKTU (0–5 menit)
-  ==================================*/
-  function pad(n){ return n.toString().padStart(2,'0'); }
-  function formatHM(d){ return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+ <!-- === POTONGAN YANG DIGANTI AJA (AMAN DIPASTE FULL) === -->
 
-  function updateTimeLine(){
-    const now=new Date();
-    let html="";
+<!-- TIMELINE WAKTU (10 menit ke belakang BINOMO STYLE) -->
+<div id="timeLine"
+     style="margin-top:8px; font-size:12px; text-align:center; 
+            color:#ff4444; font-weight:bold;
+            display:flex; justify-content:space-between;
+            padding:0 4px;">
+</div>
 
-    for(let i=0;i<=5;i++){
-      const t=new Date(now.getTime()+i*60000);
-      html += `<span style="margin:0 6px;">${formatHM(t)}</span>`;
-      if(i<5) html += "| ";
-    }
+<script>
+/* ============================================
+      TIMELINE LIKE BINOMO (10 MENIT BACK)
+   ============================================ */
 
-    document.getElementById("timeLine").innerHTML = html;
+function pad(n){ return n.toString().padStart(2,'0'); }
+function fmt(d){
+  return pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+
+function updateTimeLine(){
+  const now = new Date();
+  const container = document.getElementById("timeLine");
+
+  let html = "";
+  let points = 20; // total titik waktu
+  let interval = 30 * 1000; // tiap 30 detik = mirip binomo
+
+  let startTime = new Date(now.getTime() - (points * interval));
+
+  // generate titik waktu
+  for(let i=0; i<=points; i++){
+    let t = new Date(startTime.getTime() + i * interval);
+
+    html += `
+      <div style="flex:1; text-align:center; font-size:11px;">
+        ${fmt(t)}
+      </div>
+    `;
   }
 
-  updateTimeLine();
-  setInterval(updateTimeLine,15000);
+  container.innerHTML = html;
+}
 
-});
+updateTimeLine();
+setInterval(updateTimeLine, 1000);
 </script>
-
-</body>
-</html>
