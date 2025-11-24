@@ -1,3 +1,5 @@
+ya mau
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -357,7 +359,34 @@ window.addEventListener('DOMContentLoaded', ()=>{
     manualAmount.value=e.target.value;
   };
 
- <!-- === POTONGAN YANG DIGANTI AJA (AMAN DIPASTE FULL) === -->
+  /* ================================
+     TIMELINE WAKTU (0–5 menit)
+  ==================================*/
+  function pad(n){ return n.toString().padStart(2,'0'); }
+  function formatHM(d){ return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+
+  function updateTimeLine(){
+    const now=new Date();
+    let html="";
+
+    for(let i=0;i<=5;i++){
+      const t=new Date(now.getTime()+i*60000);
+      html += `<span style="margin:0 6px;">${formatHM(t)}</span>`;
+      if(i<5) html += "| ";
+    }
+
+    document.getElementById("timeLine").innerHTML = html;
+  }
+
+  updateTimeLine();
+  setInterval(updateTimeLine,15000);
+
+});
+</script>
+
+</body>
+</html>
+<!-- === POTONGAN YANG DIGANTI AJA (AMAN DIPASTE FULL) === -->
 
 <!-- TIMELINE WAKTU (10 menit ke belakang BINOMO STYLE) -->
 <div id="timeLine"
