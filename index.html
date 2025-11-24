@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>TREDIO — Grafik Terhubung harga.html (Full)</title>
+<title>TREDIO — Grafik Terhubung harga.html (Full, B)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
   :root{ --bg:#0b0b0c; --panel:#111217; --muted:#9aa0a6; --green:#2ecc71; --red:#e74c3c; --accent:#f1c40f; }
@@ -24,7 +24,8 @@
   .controls{ display:flex; gap:8px; align-items:center; }
   button{ background:linear-gradient(135deg,#2ecc71,#27ae60); border:none; color:#fff; padding:8px 12px; border-radius:8px; cursor:pointer }
   .muted{ color:#9aa0a6 }
-  .clockNow{ text-align:center; margin-top:8px; font-weight:700 }
+  .clockNowTop{ text-align:center; margin-bottom:8px; font-weight:700 }
+  .clockNowBottom{ text-align:center; margin-top:8px; font-weight:700 }
 </style>
 </head>
 <body>
@@ -33,18 +34,20 @@
   <div class="panel">
     <div class="header">
       <div>
-        <div style="font-size:15px;color:#ddd">📈 Grafik Harga — Terhubung ke harga.html</div>
-        <div class="small-muted">Menampilkan 5 menit terakhir — geser ke kiri untuk lihat sebelumnya</div>
+        <div style="font-size:15px;color:#ddd">📈 Grafik Harga — Terhubung ke harga.html (mode B)</div>
+        <div class="small-muted">Menampilkan 5 menit ke depan berdasarkan data harga.html — geser ke kiri untuk lihat sebelumnya</div>
       </div>
       <div style="text-align:right">
         <div class="small-muted">Sumber data</div>
-        <div style="font-weight:700;color:#fff">harga.html</div>
+        <div style="font-weight:700;color:#fff">harga.html / CSV</div>
       </div>
     </div>
 
+    <div id="clockTop" class="clockNowTop">Waktu: --:--:--</div>
+
     <div class="chart-wrap">
       <canvas id="mainChart"></canvas>
-      <div class="clockNow" id="clockNow">--:--:--</div>
+      <div id="clockBottom" class="clockNowBottom">--:--:--</div>
       <div style="margin-top:10px">
         <div class="timeline" id="timeline"></div>
       </div>
@@ -83,180 +86,144 @@
 </div>
 
 <script>
-// URL relatif ke repo — pada GitHub Pages ini menjadi /Test1/harga.html jika berada di root repository
-const DATA_URL = 'harga.html'; // pastikan harga.html ada di lokasi yang sama dengan index.html
-let hargaData = []; // array of {waktu: 'HH:MM:SS', harga: number}
+// DATA_URL — menggunakan file yang Anda upload sebelumnya (lokal di runner)
+const DATA_URL = '/mnt/data/jam_harga_format_hh_mm_ss.csv'; // <-- gunakan path file yang sudah ada in repo
+let hargaData = []; // {waktu, harga}
 
-async function fetchHarga(){
+async function fetchHargaCSV(){
   const res = await fetch(DATA_URL);
+  if(!res.ok) throw new Error('Gagal fetch '+DATA_URL);
   const text = await res.text();
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(text, 'text/html');
-  const rows = [...doc.querySelectorAll('#hargaTable tr')].slice(1);
+  const lines = text.trim().split('
+');
+  const rows = lines.slice(1); // skip header
   hargaData = rows.map(r=>{
-    const waktu = r.cells[0].innerText.trim();
-    // handle input or plain text
-    const input = r.cells[1].querySelector('input');
-    const hargaStr = input ? input.value : r.cells[1].innerText.trim();
-    const harga = Number(hargaStr.replace(/[^0-9\.-]/g,'')) || 0;
-    return {waktu, harga};
-  });
+    const [waktu, harga] = r.split(',');
+    return { waktu: waktu.trim(), harga: Number(harga) };
+  }).filter(x=>x.waktu);
 }
 
-// helpers
-function parseHHMMSS(s){ const [h,m,ss]=s.split(':').map(Number); return {h,m,ss}; }
 function formatIDR(v){ return 'Rp '+Number(v).toLocaleString('id-ID'); }
 
-// build sparkline (full day)
+// build sparkline
 let sparkChart=null, mainChart=null;
-async function buildCharts(){
-  const sparkCtx = document.getElementById('sparkline').getContext('2d');
+function buildSparkline(){
+  const ctx = document.getElementById('sparkline').getContext('2d');
   const labels = hargaData.map(d=>d.waktu);
-  const values = hargaData.map(d=>d.harga);
+  const data = hargaData.map(d=>d.harga);
   if(sparkChart) sparkChart.destroy();
-  sparkChart = new Chart(sparkCtx,{
-    type:'line', data:{ labels, datasets:[{data:values, borderColor:'#f1c40f', pointRadius:0, borderWidth:1}] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{display:false}, y:{display:false}}, elements:{line:{tension:0.2}} }
-  });
+  sparkChart = new Chart(ctx,{ type:'line', data:{ labels, datasets:[{ data, borderColor:'#f1c40f', pointRadius:0, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{display:false}, y:{display:false}}, elements:{line:{tension:0.3}} } });
 }
 
-// build main chart (per-second interpolation over visible window)
-let mainData = {labels:[], values:[]};
-function createMainChart(){
-  const ctx = document.getElementById('mainChart').getContext('2d');
-  if(mainChart) mainChart.destroy();
-  mainChart = new Chart(ctx,{ type:'line', data:{ labels: mainData.labels, datasets:[{ label:'Harga (sim)', data: mainData.values, borderColor:'#2ecc71', backgroundColor:'rgba(46,204,113,0.06)', pointRadius:0, borderWidth:2 }] }, options:{ animation:false, responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ ticks:{display:false}, grid:{color:'#111'} }, y:{ ticks:{color:'#9aa0a6'}, grid:{color:'#111'} } } } });
-}
-
-// get index in hargaData for a given minute HH:MM
-function findIndexByTime(hhmm){
-  return hargaData.findIndex(d=>d.waktu.startsWith(hhmm));
-}
-
-// prepare visible window: last N minutes ending at nowIndex (minute)
-function getWindowMinutes(centerIndex, windowSize){
-  const out = [];
-  for(let i=centerIndex-windowSize+1;i<=centerIndex;i++){
-    if(i>=0 && i<hargaData.length) out.push({i, ...hargaData[i]});
-  }
-  return out;
-}
-
-// interpolate per-second data between minute points
-function buildPerSecondSeries(centerIndex, minutesCount){
-  // we will create seconds = minutesCount * 60 points, spanning from (centerIndex-minutesCount+1) minute start to center minute end
-  const startIdx = Math.max(0, centerIndex - minutesCount + 1);
-  const endIdx = centerIndex;
-  const points = [];
+// build main chart from centerIndex showing window of minutes (5 past, current, 5 future)
+function buildPerSecondSeries(centerIndex, pastMinutes=5, futureMinutes=5){
+  const start = Math.max(0, centerIndex - pastMinutes);
+  const end = Math.min(hargaData.length-1, centerIndex + futureMinutes);
   const labels = [];
-  for(let idx=startIdx; idx<=endIdx; idx++){
-    const current = hargaData[idx];
-    const next = hargaData[idx+1] || current;
-    const curPrice = current.harga;
-    const nextPrice = next.harga;
+  const values = [];
+  for(let idx=start; idx<=end; idx++){
+    const cur = hargaData[idx];
+    const next = hargaData[idx+1] || cur;
     for(let s=0;s<60;s++){
       const t = s/60;
-      // linear interpolation + tiny noise
-      const interp = curPrice + (nextPrice - curPrice)*t + (Math.random()-0.5)*0.002;
-      points.push(+interp.toFixed(3));
-      labels.push(current.waktu.replace(':00','') + ':' + String(s).padStart(2,'0'));
+      const interp = cur.harga + (next.harga - cur.harga)*t;
+      const hhmm = cur.waktu.slice(0,5) + ':' + String(s).padStart(2,'0');
+      labels.push(hhmm);
+      values.push(+interp.toFixed(3));
     }
   }
-  return {labels, points};
+  return {labels, values};
 }
 
-// render timeline items (scrollable minutes)
-function renderTimeline(centerIndex, windowSize){
-  const timeline = document.getElementById('timeline');
-  timeline.innerHTML = '';
-  const start = Math.max(0, centerIndex - 60); // show up to last 60 minutes by default in timeline (scrollable)
-  for(let i=start;i<=centerIndex;i++){
-    const item = document.createElement('div');
-    item.className = 'time-item';
-    item.dataset.index = i;
-    item.innerHTML = `<div style="font-size:13px">${hargaData[i].waktu.slice(0,5)}</div><div style="font-weight:700;margin-top:6px">${formatIDR(hargaData[i].harga)}</div>`;
-    item.addEventListener('click', ()=>{
+function createMainChart(labels, values){
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if(mainChart) mainChart.destroy();
+  mainChart = new Chart(ctx,{ type:'line', data:{ labels, datasets:[{ label:'Harga', data: values, borderColor:'#2ecc71', backgroundColor:'rgba(46,204,113,0.06)', pointRadius:0, borderWidth:2 }] }, options:{ animation:false, responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ ticks:{display:true, maxRotation:0, autoSkip:true, maxTicksLimit:10}, grid:{color:'#111'} }, y:{ ticks:{color:'#9aa0a6'}, grid:{color:'#111'} } } } });
+}
+
+function renderTimeline(centerIndex, past=5, future=5){
+  const container = document.getElementById('timeline');
+  container.innerHTML='';
+  const start = Math.max(0, centerIndex - 60); // show a scrollable window of up to 60 prev minutes
+  const end = Math.min(hargaData.length-1, centerIndex + 60);
+  for(let i=start;i<=end;i++){
+    const div = document.createElement('div');
+    div.className='time-item';
+    if(i>=centerIndex-past && i<=centerIndex+future) div.style.opacity = 1; else div.style.opacity=0.6;
+    div.dataset.index = i;
+    div.innerHTML = `<div style="font-size:13px">${hargaData[i].waktu.slice(0,5)}</div><div style="font-weight:700;margin-top:6px">${formatIDR(hargaData[i].harga)}</div>`;
+    div.addEventListener('click', ()=>{
       document.querySelectorAll('.time-item').forEach(el=>el.classList.remove('active'));
-      item.classList.add('active');
-      // set detail
+      div.classList.add('active');
       document.getElementById('detailTime').textContent = hargaData[i].waktu;
       document.getElementById('detailPrice').textContent = formatIDR(hargaData[i].harga);
-      // rebuild main chart centered on this index
-      updateMainCentered(i);
+      updateMainForIndex(i);
     });
-    timeline.appendChild(item);
+    container.appendChild(div);
   }
+  // scroll timeline to center on centerIndex element
+  const activeEl = container.querySelector(`[data-index='${centerIndex}']`);
+  if(activeEl) activeEl.scrollIntoView({behavior:'smooth',inline:'center'});
 }
 
-function updateMainCentered(centerIndex){
-  const windowSize = 5; // minutes
-  const secSeries = buildPerSecondSeries(centerIndex, windowSize);
-  mainData.labels = secSeries.labels;
-  mainData.values = secSeries.points;
-  createMainChart();
+function updateMainForIndex(centerIndex){
+  const sec = buildPerSecondSeries(centerIndex,5,5);
+  createMainChart(sec.labels, sec.values);
 }
 
-// clock
-function startClock(){
-  const el = document.getElementById('clockNow');
+// clock top and bottom
+function startClocks(){
+  const top = document.getElementById('clockTop');
+  const bottom = document.getElementById('clockBottom');
   setInterval(()=>{
     const now = new Date();
-    el.textContent = now.toLocaleTimeString('it-IT');
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const ss = String(now.getSeconds()).padStart(2,'0');
+    top.textContent = `Waktu Sekarang: ${hh}:${mm}:${ss}`;
+    bottom.textContent = `${hh}:${mm}:${ss}`;
   },1000);
 }
 
-// initialize everything
 async function init(){
-  await fetchHarga();
-  if(!hargaData.length){ alert('Data harga kosong — pastikan harga.html tersedia dan memiliki tabel #hargaTable'); return; }
-  await buildCharts();
-  // center on current minute index
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  const hhmm = `${hh}:${mm}`;
-  // find index where waktu starts with hh:mm
-  let centerIndex = hargaData.findIndex(d=>d.waktu.startsWith(hhmm));
-  if(centerIndex === -1) centerIndex = Math.max(0, hargaData.length-1);
+  try{
+    await fetchHargaCSV();
+    if(!hargaData.length) throw new Error('Data kosong');
+    buildSparkline();
+    // find current minute index
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const search = `${hh}:${mm}:00`;
+    let centerIndex = hargaData.findIndex(d=>d.waktu.startsWith(`${hh}:${mm}`));
+    if(centerIndex === -1) centerIndex = Math.max(0, hargaData.length-1);
+    renderTimeline(centerIndex,5,5);
+    updateMainForIndex(centerIndex);
+    document.getElementById('detailTime').textContent = hargaData[centerIndex].waktu;
+    document.getElementById('detailPrice').textContent = formatIDR(hargaData[centerIndex].harga);
+    startClocks();
 
-  renderTimeline(centerIndex, 60);
-  updateMainCentered(centerIndex);
-  // set default detail
-  document.getElementById('detailTime').textContent = hargaData[centerIndex].waktu;
-  document.getElementById('detailPrice').textContent = formatIDR(hargaData[centerIndex].harga);
-  startClock();
+    // controls
+    document.getElementById('btnReload').addEventListener('click', async ()=>{ await fetchHargaCSV(); buildSparkline(); renderTimeline(centerIndex,5,5); updateMainForIndex(centerIndex); });
+    document.getElementById('btnCenter').addEventListener('click', ()=>{ const now2=new Date(); const hh2=String(now2.getHours()).padStart(2,'0'); const mm2=String(now2.getMinutes()).padStart(2,'0'); const idx=hargaData.findIndex(d=>d.waktu.startsWith(`${hh2}:${mm2}`)); if(idx!==-1){ renderTimeline(idx,5,5); updateMainForIndex(idx); } });
 
-  // auto-refresh data
-  const autoCheckbox = document.getElementById('autoRefresh');
-  document.getElementById('btnReload').addEventListener('click', async()=>{ await reloadDataAndRefresh(centerIndex); });
-  document.getElementById('btnCenter').addEventListener('click', async()=>{ centerIndex = hargaData.findIndex(d=>d.waktu.startsWith(new Date().toLocaleTimeString('it-IT').slice(0,5))); if(centerIndex===-1) centerIndex = hargaData.length-1; renderTimeline(centerIndex,60); updateMainCentered(centerIndex); });
+    // auto-refresh
+    setInterval(async ()=>{
+      if(document.getElementById('autoRefresh').checked){
+        const prevLen = hargaData.length;
+        await fetchHargaCSV();
+        if(hargaData.length !== prevLen) buildSparkline();
+        // refresh center to current minute
+        const now3=new Date(); const hh3=String(now3.getHours()).padStart(2,'0'); const mm3=String(now3.getMinutes()).padStart(2,'0'); const idx3=hargaData.findIndex(d=>d.waktu.startsWith(`${hh3}:${mm3}`)); const cidx = idx3===-1?hargaData.length-1:idx3;
+        renderTimeline(cidx,5,5); updateMainForIndex(cidx);
+      }
+    },30*1000);
 
-  setInterval(async()=>{
-    if(autoCheckbox.checked){
-      const prevLen = hargaData.length;
-      await fetchHarga();
-      if(hargaData.length !== prevLen) await buildCharts();
-      // refresh centered at latest
-      const newCenter = hargaData.findIndex(d=>d.waktu.startsWith(new Date().toLocaleTimeString('it-IT').slice(0,5)));
-      const idx = newCenter===-1?hargaData.length-1:newCenter;
-      renderTimeline(idx,60);
-      updateMainCentered(idx);
-      document.getElementById('detailTime').textContent = hargaData[idx].waktu;
-      document.getElementById('detailPrice').textContent = formatIDR(hargaData[idx].harga);
-    }
-  }, 30*1000); // refresh every 30s if enabled
+  }catch(err){ console.error(err); alert('Error init: '+err.message); }
 }
 
-// reload helper
-async function reloadDataAndRefresh(centerIndex){
-  await fetchHarga();
-  await buildCharts();
-  renderTimeline(centerIndex,60);
-  updateMainCentered(centerIndex);
-}
-
-// kick off
 init();
 </script>
+
 </body>
 </html>
