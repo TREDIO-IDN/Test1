@@ -1,152 +1,192 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Grafik Harga</title>
-
-<!-- CHART.JS -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TREDIO</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-  body { margin:0; background:#f5f5f5; font-family:Arial; }
-  .top-time {
-    padding:12px;
-    background:white;
-    text-align:center;
-    font-size:18px;
-    font-weight:bold;
-    position:sticky;
-    top:0;
-    z-index:20;
-    border-bottom:1px solid #ddd;
-  }
-  #chartBox {
-    width:100%;
-    height:400px;
-    background:white;
-    margin-top:10px;
-    padding:10px;
-    box-shadow:0 2px 5px rgba(0,0,0,0.1);
-  }
+  :root{ --bg:#0b0b0c; --panel:#111217; --muted:#9aa0a6; --green:#2ecc71; --red:#e74c3c; --accent:#f1c40f; }
+  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Inter,Arial,Helvetica,sans-serif}
+  .app{ max-width:980px;margin:12px auto;padding:12px; display:grid;grid-template-columns:1fr 360px;gap:12px; }
+  @media (max-width:900px){ .app{ grid-template-columns:1fr; padding:8px } }
+  .panel{ background:linear-gradient(180deg,#070708 0%, var(--panel) 100%); border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,0.6); }
+  .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .saldo { font-weight:700;color:var(--green) }
+  .chart-wrap{ position:relative; background:#000;border-radius:10px;padding:8px; }
+  canvas{ width:100% !important; height:360px !important; display:block; border-radius:8px; }
+  .side{ display:flex;flex-direction:column;gap:12px; }
+  .card{ background:#0f1113;padding:12px;border-radius:10px; }
+  .small-muted{ color:#9aa0a6; font-size:13px }
+  #timeAxisContainer{margin-top:10px;background:#0d0d0f;padding:8px;border-radius:8px;overflow-x:auto;white-space:nowrap;font-family:Inter;font-size:12px;color:#9aa0a6;scroll-behavior:smooth}
 </style>
 </head>
 <body>
 
-<div id="liveTime" class="top-time">Loading time...</div>
+<!-- LOGIN -->
+<div id="loginScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Inter">
+  <h1 style="margin-bottom:20px;font-size:32px;font-weight:800">TREDIO</h1>
+  <div style="background:#111217;padding:20px;border-radius:12px;width:320px;box-shadow:0 0 20px rgba(0,0,0,0.5)">
+    <input id="loginUser" placeholder="Username" />
+    <input id="loginPass" placeholder="Password" type="password" />
+    <button id="btnLogin">LOGIN</button>
+    <div id="loginError" style="margin-top:10px;color:#e74c3c;font-size:14px;display:none">Username / Password salah!</div>
+  </div>
+</div>
 
-<div id="chartBox">
-  <canvas id="hargaChart"></canvas>
+<!-- MAIN APP -->
+<div class="app" id="mainApp" style="display:none">
+  <div class="panel">
+
+    <div class="header">
+      <div>
+        <div style="font-size:15px;color:#ddd">📈 Grafik Harga — Batubara Premium</div>
+        <div class="small-muted">Realtime detik + kontrol admin per menit</div>
+      </div>
+      <div style="text-align:right">
+        <div class="small-muted">Saldo Real:</div>
+        <div class="saldo" id="saldoText">Rp 140.000.000</div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="chartCanvas"></canvas>
+    </div>
+
+    <div id="timeAxisContainer"></div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:10px;">
+      <div class="small-muted">Harga Buka: <span id="txtOpen">-</span></div>
+      <div class="small-muted">Harga Sekarang: <span id="txtNow">-</span></div>
+      <div class="small-muted">Countdown: <span id="txtCountdown">60</span>s</div>
+    </div>
+
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <div class="small-muted">Nominal</div>
+
+      <select id="quickAmount">
+        <option value="">Pilih</option>
+        <option value="140000">140.000</option>
+        <option value="240000">240.000</option>
+        <option value="700000">700.000</option>
+        <option value="1400000">1.400.000</option>
+      </select>
+
+      <input id="manualAmount" type="number" placeholder="Manual (Rp)" />
+
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button id="btnUp" class="btn-up">⬆ NAIK</button>
+        <button id="btnDown" class="btn-down">⬇ TURUN</button>
+      </div>
+
+      <div class="small-muted" style="margin-top:8px">
+        <div>Hasil terakhir: <span id="lastResult">-</span></div>
+        <div>Harga Tutup: <span id="txtClose">-</span></div>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <script>
-/* ============================
-   FETCH DATA DARI HARGA.HTML
-==============================*/
-async function ambilDataHarga() {
-  const url = "https://tredio-idn.github.io/Test1/harga.html";
+// LOGIN
+btnLogin.onclick = () => {
+  if (loginUser.value === "TRADERPRO2025" && loginPass.value === "120288") {
+    loginScreen.style.display = "none";
+    mainApp.style.display = "grid";
+  } else loginError.style.display = "block";
+};
 
-  const html = await fetch(url).then(r => r.text());
-  const dom = new DOMParser().parseFromString(html, "text/html");
-
-  const rows = dom.querySelectorAll("#hargaTable tr");
-  const hasil = [];
-
-  rows.forEach((r, i) => {
-    if (i === 0) return; // skip header
-
-    const td = r.querySelectorAll("td");
-    if (td.length < 2) return;
-
-    const waktu = td[0].innerText.trim();
-    const harga = Number(td[1].querySelector("input")?.value || 0);
-
-    hasil.push({ waktu, harga });
-  });
-
-  return hasil;
+// PRICE SYSTEM
+function loadAdminPrices(){
+  return JSON.parse(localStorage.getItem("adminPrices") || "{}");
 }
 
-/* ============================
-   UPDATE JAM LIVE
-==============================*/
-function updateLiveClock() {
+function getAdminMinutePrice(){
   const now = new Date();
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  const ss = String(now.getSeconds()).padStart(2,'0');
-  document.getElementById("liveTime").innerText =
-    `Waktu Sekarang: ${hh}:${mm}:${ss}`;
-}
-setInterval(updateLiveClock, 1000);
-
-/* ============================
-   GRAFIK
-==============================*/
-let chart;
-function buatGrafik(labels, data) {
-  const ctx = document.getElementById("hargaChart").getContext("2d");
-  if (chart) chart.destroy();
-
-  chart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        label: "Harga",
-        data,
-        borderWidth: 2,
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: { ticks: { maxRotation: 0, autoSkip: true } },
-        y: { beginAtZero: false }
-      }
-    }
-  });
+  const key = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:00`;
+  const prices = loadAdminPrices();
+  return prices[key] ?? null;
 }
 
-/* ============================
-   RANGE 5 MENIT
-==============================*/
-function ambilRangeLimaMenit(data) {
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2,"0");
-  const mm = String(now.getMinutes()).padStart(2,"0");
+let currentPrice = 75000;
 
-  const currentTime = `${hh}:${mm}:00`;
-
-  const index = data.findIndex(d => d.waktu === currentTime);
-  if (index === -1) return data.slice(-5);
-
-  return data.slice(Math.max(0, index - 2), index + 3);
+// harga per detik naik–turun max Rp500
+function getRandomTick(base){
+  return base + (Math.random() * 1000 - 500);
 }
 
-/* ============================
-   LOOP UPDATE GRAFIK SETIAP 3 DETIK
-==============================*/
-async function render() {
-  const data = await ambilDataHarga();
-  if (!data || data.length === 0) {
-    console.log("Harga kosong.");
-    return;
+// CHART
+const ctx = chartCanvas.getContext("2d");
+const chart = new Chart(ctx, {
+  type:"line",
+  data:{ labels:[], datasets:[{data:[], borderColor:"#2ecc71", pointRadius:0, tension:0.3}] },
+  options:{ animation:false, responsive:true, plugins:{legend:{display:false}} }
+});
+
+function pushPoint(price){
+  chart.data.labels.push("");
+  chart.data.datasets[0].data.push(price);
+  if(chart.data.labels.length > 120){
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+  chart.update();
+}
+
+// UPDATE PRICE EACH SECOND
+setInterval(()=>{
+  const adminPrice = getAdminMinutePrice();
+  if(adminPrice !== null){
+    currentPrice = adminPrice;
+  } else {
+    currentPrice = getRandomTick(currentPrice);
   }
 
-  const range = ambilRangeLimaMenit(data);
+  txtNow.textContent = Math.round(currentPrice);
+  pushPoint(currentPrice);
+},1000);
 
-  const labels = range.map(d => d.waktu);
-  const values = range.map(d => d.harga);
-
-  buatGrafik(labels, values);
+// TIME AXIS
+function generateTimes(){
+  let arr=[];
+  for(let h=0;h<24;h++){
+    for(let m=0;m<60;m++){
+      for(let s=1;s<=60;s++){
+        arr.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
+      }
+    }
+  }
+  return arr;
 }
+const FULL_TIMES = generateTimes();
 
-render();
-setInterval(render, 3000);
+function renderAxis(){
+  const box = timeAxisContainer;
+  box.innerHTML="";
+
+  const now = new Date();
+  const nowStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+  const idx = FULL_TIMES.indexOf(nowStr);
+
+  const L = Math.max(0, idx - 200);
+  const R = Math.min(FULL_TIMES.length - 1, idx + 200);
+
+  FULL_TIMES.slice(L,R).forEach(t=>{
+    const span=document.createElement("span");
+    span.textContent=t;
+    span.style.padding="4px 10px";
+    span.style.marginRight="4px";
+    span.style.borderRadius="6px";
+    span.style.background = t===nowStr ? "#2ecc71" : "#111217";
+    span.style.color = t===nowStr ? "#000" : "#9aa0a6";
+    box.appendChild(span);
+  });
+}
+setInterval(renderAxis,1000);
 </script>
-
 </body>
 </html>
