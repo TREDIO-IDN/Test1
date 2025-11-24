@@ -153,17 +153,14 @@
 <script>
 window.addEventListener('DOMContentLoaded', ()=>{
 
-  /* ============= LOGIN ============= */
   const loginScreen = document.getElementById('loginScreen');
   const mainApp = document.getElementById('mainApp');
   const btnLogin = document.getElementById('btnLogin');
-
   btnLogin.addEventListener('click', ()=>{
     loginScreen.style.display = 'none';
     mainApp.style.display = 'grid';
   });
 
-  /* ========== DATA & CHART ========== */
   const hargaPerMenit = [74.996,75.001,74.998,75.005,75.012,75.008,75.004,74.999,75.003,75.008,75.015,75.020,75.025,75.022,75.018,75.014,75.010,75.006,75.009,75.014,75.011,90000,175.000,50000,74.990,74.987,74.982,74.979,74.975,74.970,74.965,74.968,74.972,74.977,74.981,74.985,74.990,74.985,74.980,74.976,74.972,74.978,74.983,74.975,74.970,74.965,74.971,74.977,74.980,74.985,74.992,74.996,75.000,75.005,75.011,75.018,75.023,75.028,75.025,75.021];
 
   let saldo = 140000000;
@@ -257,7 +254,6 @@ window.addEventListener('DOMContentLoaded', ()=>{
     pushPoint(h); playTick();
   },1000);
 
-  /* ============= TRADING LOGIC ============= */
   let tradingActive=false, openPrice=null, openIndex=null, closeIndex=null, countdown=60, timer=null, chosenAmount=0;
 
   const txtOpen=document.getElementById('txtOpen');
@@ -275,6 +271,20 @@ window.addEventListener('DOMContentLoaded', ()=>{
   function setDisabled(x){
     btnUp.disabled=x; btnDown.disabled=x;
     quickAmount.disabled=x; manualAmount.disabled=x; intervalSelect.disabled=x;
+  }
+
+  function forceLoss(dir){
+    const last=chart.data.datasets[0].data;
+    const finalIndex=last.length-1;
+
+    if(dir==='naik'){
+      last[finalIndex] = openPrice - Math.random()*0.05;
+    } else {
+      last[finalIndex] = openPrice + Math.random()*0.05;
+    }
+
+    chart.update();
+    return last[finalIndex];
   }
 
   function startTrade(dir){
@@ -305,37 +315,15 @@ window.addEventListener('DOMContentLoaded', ()=>{
     timer=setInterval(()=>{
       countdown--; txtCountdown.textContent=countdown;
 
-      const cur=chart.data.datasets[0].data.slice(-1)[0];
-      let res='NETRAL';
-
-      if(dir==='naik'){
-        res = cur>openPrice?'MENANG':cur<openPrice?'KALAH':'NETRAL';
-      } else {
-        res = cur<openPrice?'MENANG':cur>openPrice?'KALAH':'NETRAL';
-      }
-
-      statusBox.classList.remove('result-win','result-lose');
-      if(res==='MENANG'){ statusBox.textContent='MENANG'; statusBox.classList.add('result-win'); }
-      else if(res==='KALAH'){ statusBox.textContent='KALAH'; statusBox.classList.add('result-lose'); }
-      else statusBox.textContent='NETRAL';
-
       if(countdown<=0){
         clearInterval(timer); timer=null;
 
-        const final=chart.data.datasets[0].data.slice(-1)[0];
-        const win=(dir==='naik' && final>openPrice) || (dir==='turun' && final<openPrice);
+        let final = forceLoss(dir);
 
-        if(win){
-          saldo+=chosenAmount;
-          statusBox.textContent=`MENANG +${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
-          statusBox.classList.add('result-win');
-          lastResult.textContent='MENANG';
-        } else {
-          saldo-=chosenAmount;
-          statusBox.textContent=`KALAH -${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
-          statusBox.classList.add('result-lose');
-          lastResult.textContent='KALAH';
-        }
+        saldo -= chosenAmount;
+        statusBox.textContent=`KALAH -${formatIDR(chosenAmount)} — ${final.toFixed(3)}`;
+        statusBox.classList.add('result-lose');
+        lastResult.textContent='KALAH';
 
         saldoText.textContent = formatIDR(saldo);
         txtClose.textContent = final.toFixed(3);
@@ -357,9 +345,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     manualAmount.value=e.target.value;
   };
 
-  /* ================================
-     TIMELINE WAKTU (0–5 menit)
-  ==================================*/
+  /* TIMELINE 5 MENIT KE BELAKANG */
   function pad(n){ return n.toString().padStart(2,'0'); }
   function formatHM(d){ return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
 
@@ -367,10 +353,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
     const now=new Date();
     let html="";
 
-    for(let i=0;i<=5;i++){
-      const t=new Date(now.getTime()+i*60000);
+    for(let i=5;i>=0;i--){
+      const t=new Date(now.getTime() - (i * 60000));
       html += `<span style="margin:0 6px;">${formatHM(t)}</span>`;
-      if(i<5) html += "| ";
+      if(i>0) html += "| ";
     }
 
     document.getElementById("timeLine").innerHTML = html;
