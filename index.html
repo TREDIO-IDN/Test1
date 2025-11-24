@@ -139,16 +139,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
   const btnLogin = document.getElementById('btnLogin');
   const loginError = document.getElementById('loginError');
 
-  btnLogin.addEventListener('Load', ()=>{
-    const u = document.getElementById('loginUser').value.trim();
-    const p = document.getElementById('loginPass').value.trim();
-    if(u === 'TRADERPRO2025' && p === '120288'){
-      loginScreen.style.display = 'none';
-      mainApp.style.display = 'grid';
-    } else {
-      loginError.style.display = 'block';
-    }
-  });
+  btnLogin.addEventListener('click', ()=>{
+  loginScreen.style.display = 'none';
+  mainApp.style.display = 'grid';
+});
+
 
   /* Harga per menit tetap */
   const hargaPerMenit = [74.996,75.001,74.998,75.005,75.012,75.008,75.004,74.999,75.003,75.008,75.015,75.020,75.025,75.022,75.018,75.014,75.010,75.006,75.009,75.014,75.011,90000,175.000,50000,74.990,74.987,74.982,74.979,74.975,74.970,74.965,74.968,74.972,74.977,74.981,74.985,74.990,74.985,74.980,74.976,74.972,74.978,74.983,74.975,74.970,74.965,74.971,74.977,74.980,74.985,74.992,74.996,75.000,75.005,75.011,75.018,75.023,75.028,75.025,75.021];
