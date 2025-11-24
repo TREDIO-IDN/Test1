@@ -357,29 +357,31 @@ window.addEventListener('DOMContentLoaded', ()=>{
     manualAmount.value=e.target.value;
   };
 
-  /* ================================
-     TIMELINE WAKTU (0–5 menit)
-  ==================================*/
-  function pad(n){ return n.toString().padStart(2,'0'); }
-  function formatHM(d){ return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+ // ======== TIMELINE LIKE BINOMO ========
+function pad(n){ return n.toString().padStart(2,"0"); }
+function fmt(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 
-  function updateTimeLine(){
-    const now=new Date();
-    let html="";
+function updateTimeLine(){
+  const now = new Date();
+  let html = `<div style="display:flex;width:100%;">`;
 
-    for(let i=0;i>=10;i++){
-      const t=new Date(now.getTime()+i*60000);
-      html += `<span style="margin:0 6px;">${formatHM(t)}</span>`;
-      if(i>10) html += "| ";
-    }
+  const points = 20;
+  const interval = 30 * 1000;
 
-    document.getElementById("timeLine").innerHTML = html;
+  let start = new Date(now.getTime() - points*interval);
+
+  for(let i=0; i<=points; i++){
+    let t = new Date(start.getTime() + i*interval);
+    html += `<div style="flex:1;text-align:center;font-size:11px;">${fmt(t)}</div>`;
   }
 
-  updateTimeLine();
-  setInterval(updateTimeLine,15000);
+  html += `</div>`;
+  timeLine.innerHTML = html;
+}
 
-});
+updateTimeLine();
+setInterval(updateTimeLine,1000);
+
 </script>
 
 </body>
