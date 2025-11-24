@@ -1,70 +1,66 @@
 <!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Admin Harga</title>
 <style>
-body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
-h1 { margin-bottom: 20px; }
-table { border-collapse: collapse; width: 100%; background: #fff; }
-th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-th { background: #eee; }
-input { width: 100px; padding: 4px; }
-button { padding: 10px 18px; margin-top: 20px; cursor: pointer; }
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+  h1 { margin-bottom: 20px; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+  th { background: #eee; }
+  input { width: 100px; padding: 4px; }
+  button { padding: 10px 18px; margin-top: 20px; cursor: pointer; }
 </style>
 </head>
 <body>
 <h1>Panel Admin – Edit Harga</h1>
 <p>Edit harga langsung di tabel lalu klik "Simpan Perubahan" untuk mengekspor update.</p>
 
-
 <table id="hargaTable">
 <tr><th>Waktu</th><th>Harga</th></tr>
 </table>
 
-
 <button onclick="downloadCSV()">Simpan Perubahan (Export CSV)</button>
-
 
 <script>
 // MEMUAT DATA HARGA (GENERATE OTOMATIS)
 const data = [];
 for (let h = 0; h < 24; h++) {
-for (let m = 0; m < 60; m++) {
-if (h === 0 && m === 0) continue;
-const hh = String(h).padStart(2,'0');
-const mm = String(m).padStart(2,'0');
-data.push({ waktu:`${hh}:${mm}:00`, harga:75000 });
+  for (let m = 0; m < 60; m++) {
+    if (h === 0 && m === 0) continue;
+    const hh = String(h).padStart(2,'0');
+    const mm = String(m).padStart(2,'0');
+    data.push({ waktu:`${hh}:${mm}:00`, harga:75000 });
+  }
 }
-}
-
 
 // RENDER TABEL EDITABLE
 const table = document.getElementById("hargaTable");
 data.forEach(row => {
-const tr = document.createElement("tr");
-tr.innerHTML = `<td>${row.waktu}</td><td><input type='number' value='${row.harga}'></td>`;
-table.appendChild(tr);
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${row.waktu}</td><td><input type='number' value='${row.harga}'></td>`;
+  table.appendChild(tr);
 });
-
 
 // EXPORT CSV SETELAH DIEDIT
 function downloadCSV() {
-let csv = "Waktu,Harga
-";
-const rows = document.querySelectorAll("#hargaTable tr");
-rows.forEach((tr, i) => {
-if (i === 0) return;
-const tds = tr.querySelectorAll("td");
-const waktu = tds[0].innerText;
-const harga = tds[1].querySelector("input").value;
-csv += `${waktu},${harga}
-`;
-});
+  let csv = `Waktu,Harga\n`;
+  const rows = document.querySelectorAll("#hargaTable tr");
+  rows.forEach((tr, i) => {
+    if (i === 0) return;
+    const tds = tr.querySelectorAll("td");
+    const waktu = tds[0].innerText;
+    const harga = tds[1].querySelector("input").value;
+    csv += `${waktu},${harga}\n`;
+  });
 
-
-const blob = new Blob([csv], { type: "text/csv" });
-const url = URL.createObjectURL(blob);
-const a = document.createElement("a");
-a.href = url;
-a.download = "harga_updated.csv";
-a.click();
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "harga_updated.csv";
+  a.click();
 }
 </script>
 </body>
